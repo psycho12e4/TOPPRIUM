@@ -1,0 +1,67 @@
+export function html(strings, ...values) {
+  return strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
+}
+
+export function formatDate(date) {
+  if (!date) return ''
+  return new Date(date).toLocaleDateString()
+}
+
+export function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+}
+
+export function getFileIcon(fileType) {
+  const icons = {
+    'application/pdf': '📄',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '🎬',
+    'video/mp4': '🎥',
+    'image/jpeg': '🖼️',
+    'image/png': '🖼️',
+  }
+  return icons[fileType] || '📎'
+}
+
+export function formatFileType(fileType) {
+  if (!fileType || typeof fileType !== 'string') return 'FILE'
+  const parts = fileType.split('/')
+  const ext = parts[1] || parts[0] || 'file'
+  return ext.toUpperCase()
+}
+
+export function debounce(fn, delay) {
+  let timeout
+  return function (...args) {
+    clearTimeout(timeout)
+    timeout = setTimeout(() => fn(...args), delay)
+  }
+}
+
+export function showNotification(message, type = 'success') {
+  const div = document.createElement('div')
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+  div.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`
+  div.textContent = message
+  document.body.appendChild(div)
+  setTimeout(() => div.remove(), 3000)
+}
+
+export function showModal(content) {
+  const modal = document.createElement('div')
+  modal.className = 'modal'
+  modal.innerHTML = `<div class="modal-content">${content}</div>`
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove()
+  })
+  document.body.appendChild(modal)
+  return modal
+}
+
+export function closeModal() {
+  document.querySelectorAll('.modal').forEach(m => m.remove())
+}

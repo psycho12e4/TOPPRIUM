@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOPPRIUM - Learning Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #059669; color: white; }
+    .btn-secondary:hover { background: #047857; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
+    .btn-outline:hover { background: #f3f4f6; }
+    .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; border: 1px solid #f3f4f6; }
+    .input { width: 100%; padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; outline: none; }
+    .input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-box { background: white; border-radius: 0.5rem; padding: 2rem; max-width: 400px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+    .modal-box h2 { margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: bold; }
+    .modal-box input { margin-bottom: 1rem; }
+    .modal-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div id="app"></div>
+  <div id="modal-container"></div>
+
+  <script>
+    // ============ CONFIG ============
+    const SUPABASE_URL = 'https://bzrxgolyrmgpxlzwxnzz.supabase.co'
+    const SUPABASE_KEY = 'sb_publishable_eEm04nECSLtVyzj3ZDdMUA_1RJex0P8'
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    const app = document.getElementById('app')
+
+    // ============ HELPERS ============
+    function notify(msg, type = 'success') {
+      const div = document.createElement('div')
+      const bg = type === 'error' ? 'bg-red-500' : type === 'info' ? 'bg-blue-500' : 'bg-green-500'
+      div.className = `fixed top-4 right-4 ${bg} text-white px-6 py-3 rounded-lg shadow-lg z-50`
+      div.textContent = msg
+      document.body.appendChild(div)
+      setTimeout(() => div.remove(), 3000)
+    }
+
+    function errMsg(e) {
+      if (!e) return ''
+      if (typeof e === 'string') return e
+      return e.message || e.error_description || e.msg || ''
+    }
+
+    function modalInput(title, placeholder = '', defaultValue = '') {
+      return new Promise((resolve) => {
+        const modal = document.createElement('div')
+        modal.className = 'modal-overlay'
+        modal.innerHTML = `
+          <div class="modal-box">
+            <h2>${title}</h2>
+            <input type="text" id="modal-input" class="input" placeholder="${placeholder}" value="${defaultValue}" autofocus>
+            <div class="modal-buttons">
+              <button class="btn btn-outline" onclick="document.getElementById('modal-overlay').remove()">Cancel</button>
+              <button class="btn btn-primary" onclick="resolveModal()">OK</button>
+            </div>
+          </div>
+        `
+        modal.id = 'modal-overlay'
+        document.getElementById('modal-container').appendChild(modal)
+
+        window.resolveModal = () => {
+          const val = document.getElementById('modal-input').value
+          modal.remove()
+          resolve(val || null)
+        }
+
+        document.getElementById('modal-input').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') window.resolveModal()
+        })
+      })
+    }
+
+    function fileIcon(t) {
+      const m = {
+        'application/pdf': '📄',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '🎬',
+        'video/mp4': '🎥', 'image/jpeg': '🖼️', 'image/png': '🖼️',
+      }
+      return m[t] || '📎'
+    }
+
+    function fileExt(t) {
+      if (!t || typeof t !== 'string') return 'FILE'
+      const p = t.split('/')
+      return (p[1] || p[0] || 'file').toUpperCase()
+    }
+
+    async function getUser() {
+      const { data } = await sb.auth.getUser()
+      return data?.user || null
+    }
+
+    async function getRole(userId) {
+      const { data } = await sb.from('profiles').select('role').eq('id', userId).single()
+      return data?.role || 'student'
+    }
+
+    function loggedIn() { return !!localStorage.getItem('userId') }
+
+    // ============ NAV ============
+    function nav(isAdmin = false) {
+      return `
+        <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+              <a href="#/" class="font-bold text-2xl text-blue-600">TOPPRIUM</a>
+              <div class="flex items-center gap-4">
+                ${isAdmin ? `
+                  <a href="#/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a>
+                  <a href="#/admin/subjects" class="text-gray-600 hover:text-gray-900">Subjects</a>
+                  <a href="#/admin/classes" class="text-gray-600 hover:text-gray-900">Classes</a>
+                  <a href="#/admin/resources" class="text-gray-600 hover:text-gray-900">Resources</a>
+                  <a href="#/admin/tests" class="text-gray-600 hover:text-gray-900">Tests</a>
+                ` : `
+                  <a href="#/" class="text-gray-600 hover:text-gray-900">Home</a>
+                `}
+                ${loggedIn()
+                  ? `<button onclick="doLogout()" class="btn btn-outline text-sm">Logout</button>`
+                  : `<a href="#/login" class="btn btn-primary text-sm">Login</a>`}
+              </div>
+            </div>
+          </div>
+        </nav>`
+    }
+
+    async function doLogout() {
+      try { await sb.auth.signOut() } catch (e) {}
+      localStorage.removeItem('userId')
+      location.hash = '#/login'
+    }
+
+    // ============ AUTH PAGES ============
+    function renderLogin() {
+      app.innerHTML = nav() + `
+        <div class="min-h-screen flex items-center justify-center py-12 px-4">
+          <div class="w-full max-w-md">
+            <div class="card">
+              <h2 class="text-3xl font-bold text-center mb-8">Login</h2>
+              <form id="login-form">
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2">Email</label>
+                  <input type="email" id="email" required class="input" placeholder="you@example.com">
+                </div>
+                <div class="mb-6">
+                  <label class="block text-sm font-medium mb-2">Password</label>
+                  <input type="password" id="password" required class="input" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full btn btn-primary">Login</button>
+              </form>
+              <p class="text-center mt-4 text-sm text-gray-600">
+                Don't have an account? <a href="#/signup" class="text-blue-600 hover:underline">Sign up</a>
+              </p>
+            </div>
+          </div>
+        </div>`
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const email = email_val('email'), password = email_val('password')
+        const { data, error } = await sb.auth.signInWithPassword({ email, password })
+        if (error || !data?.user) {
+          notify(errMsg(error) || 'Invalid login credentials', 'error')
+        } else {
+          localStorage.setItem('userId', data.user.id)
+          notify('Logged in successfully')
+          location.hash = '#/'
+        }
+      })
+    }
+
+    function renderSignup() {
+      app.innerHTML = nav() + `
+        <div class="min-h-screen flex items-center justify-center py-12 px-4">
+          <div class="w-full max-w-md">
+            <div class="card">
+              <h2 class="text-3xl font-bold text-center mb-8">Sign Up</h2>
+              <form id="signup-form">
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2">Email</label>
+                  <input type="email" id="email" required class="input" placeholder="you@example.com">
+                </div>
+                <div class="mb-6">
+                  <label class="block text-sm font-medium mb-2">Password</label>
+                  <input type="password" id="password" required class="input" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full btn btn-primary">Sign Up</button>
+              </form>
+              <p class="text-center mt-4 text-sm text-gray-600">
+                Already have an account? <a href="#/login" class="text-blue-600 hover:underline">Login</a>
+              </p>
+            </div>
+          </div>
+        </div>`
+      document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const email = email_val('email'), password = email_val('password')
+        const { data, error } = await sb.auth.signUp({ email, password })
+        if (!error && data?.session && data?.user) {
+          localStorage.setItem('userId', data.user.id)
+          notify('Account created!')
+          location.hash = '#/'
+          return
+        }
+        const login = await sb.auth.signInWithPassword({ email, password })
+        if (!login.error && login.data?.user) {
+          localStorage.setItem('userId', login.data.user.id)
+          notify('Logged in successfully')
+          location.hash = '#/'
+        } else {
+          notify(errMsg(error) || errMsg(login.error) || 'Signup failed', 'error')
+        }
+      })
+    }
+
+    function email_val(id) { return document.getElementById(id).value }
+
+    // ============ STUDENT PAGES ============
+    async function renderHome() {
+      const { data: subjects } = await sb.from('subjects').select('*').order('created_at', { ascending: false })
+      const classes = ['VI', 'VII', 'VIII', 'IX', 'X']
+
+      app.innerHTML = nav() + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to TOPPRIUM</h1>
+            <p class="text-xl text-gray-600">Learn from expertly curated educational content</p>
+          </div>
+          <div class="mb-8">
+            <div class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Select Class</label>
+                <select id="class-select" class="input">
+                  <option value="">All Classes</option>
+                  ${classes.map(c => `<option value="${c}">Class ${c}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Search Subjects</label>
+                <input type="text" id="search" class="input" placeholder="Search subjects...">
+              </div>
+            </div>
+          </div>
+          <div id="subjects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${renderSubjectCards(subjects)}
+          </div>
+        </div>`
+
+      let allSubjects = subjects || []
+      let selectedClass = ''
+
+      const classSelect = document.getElementById('class-select')
+      const search = document.getElementById('search')
+
+      function filterSubjects() {
+        let filtered = allSubjects
+        if (selectedClass) {
+          filtered = filtered.filter(s => s.grade === selectedClass)
+        }
+        const q = search.value.toLowerCase()
+        if (q) {
+          filtered = filtered.filter(s => s.name.toLowerCase().includes(q))
+        }
+        document.getElementById('subjects-grid').innerHTML = renderSubjectCards(filtered)
+      }
+
+      classSelect.addEventListener('change', (e) => {
+        selectedClass = e.target.value
+        filterSubjects()
+      })
+
+      search.addEventListener('input', () => {
+        filterSubjects()
+      })
+    }
+
+    function renderSubjectCards(subjects) {
+      if (!subjects || subjects.length === 0)
+        return '<p class="col-span-3 text-center text-gray-600">No subjects available yet</p>'
+      return subjects.map(s => `
+        <a href="#/subject/${s.id}" class="card hover:shadow-md transition-shadow cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">${s.name}</h3>
+              ${s.grade ? `<p class="text-xs text-blue-600 font-medium">Class ${s.grade}</p>` : ''}
+              <p class="text-sm text-gray-600 mt-2">Explore chapters and resources</p>
+            </div>
+            <span class="text-2xl">📚</span>
+          </div>
+          <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Browse →</div>
+        </a>`).join('')
+    }
+
+    async function renderSubject(id) {
+      const { data: subject } = await sb.from('subjects').select('*').eq('id', id).single()
+      const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', id).order('created_at', { ascending: false })
+      if (!subject) { app.innerHTML = nav() + notFound(); return }
+      app.innerHTML = nav() + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <a href="#/" class="text-blue-600 hover:underline">← Back to Subjects</a>
+          <h1 class="text-4xl font-bold text-gray-900 my-4">${subject.name}</h1>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">Chapters</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            ${(chapters && chapters.length) ? chapters.map(c => `
+              <a href="#/chapter/${c.id}" class="card hover:shadow-md transition-shadow cursor-pointer">
+                <h3 class="text-lg font-semibold text-gray-900">${c.title}</h3>
+                <p class="text-sm text-gray-600 mt-2">View resources and tests</p>
+                <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Open →</div>
+              </a>`).join('') : '<p class="text-gray-600">No chapters available</p>'}
+          </div>
+        </div>`
+    }
+
+    async function renderChapter(id) {
+      const { data: chapter } = await sb.from('chapters').select('*').eq('id', id).single()
+      const { data: resources } = await sb.from('resources').select('*').eq('chapter_id', id).order('created_at', { ascending: false })
+      const { data: tests } = await sb.from('tests').select('*').eq('chapter_id', id).order('created_at', { ascending: false })
+      if (!chapter) { app.innerHTML = nav() + notFound(); return }
+      app.innerHTML = nav() + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <a href="#/" class="text-blue-600 hover:underline">← Back to Home</a>
+          <h1 class="text-4xl font-bold text-gray-900 my-4">${chapter.title}</h1>
+          ${(resources && resources.length) ? `
+            <div class="mt-8">
+              <h2 class="text-2xl font-bold text-gray-900 mb-6">Resources</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${resources.map(r => `
+                  <a href="${r.file_url}" target="_blank" class="card hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-3">
+                      <span class="text-3xl">${fileIcon(r.file_type)}</span>
+                      <div class="flex-1">
+                        <h3 class="font-semibold text-gray-900 truncate">${r.title}</h3>
+                        <p class="text-xs text-gray-500 mt-1">${fileExt(r.file_type)}</p>
+                      </div>
+                    </div>
+                  </a>`).join('')}
+              </div>
+            </div>` : ''}
+          ${(tests && tests.length) ? `
+            <div class="mt-12">
+              <h2 class="text-2xl font-bold text-gray-900 mb-6">Tests</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${tests.map(t => `
+                  <a href="#/test/${t.id}" class="card hover:shadow-md transition-shadow cursor-pointer">
+                    <h3 class="text-lg font-semibold text-gray-900">${t.title}</h3>
+                    <p class="text-sm text-gray-600 mt-2">📋 Take the test</p>
+                    <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Start →</div>
+                  </a>`).join('')}
+              </div>
+            </div>` : ''}
+          ${(!resources?.length && !tests?.length) ? '<p class="text-gray-600 mt-8">No content in this chapter yet</p>' : ''}
+        </div>`
+    }
+
+    async function renderTest(id) {
+      const { data: test } = await sb.from('tests').select('*').eq('id', id).single()
+      if (!test) { app.innerHTML = nav() + notFound(); return }
+      const { data: questions } = await sb.from('questions').select('*').eq('test_id', id).order('created_at', { ascending: false })
+      app.innerHTML = nav() + `
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <a href="#/" class="text-blue-600 hover:underline">← Back</a>
+          <h1 class="text-3xl font-bold text-gray-900 mt-4 mb-2">${test.title}</h1>
+          <p class="text-gray-600 mb-8">${questions?.length || 0} questions</p>
+          <form id="test-form">
+            <div class="space-y-8">
+              ${(questions || []).map((q, i) => `
+                <div class="card">
+                  <h3 class="font-semibold text-gray-900 mb-4">${i + 1}. ${q.question}</h3>
+                  <div class="space-y-2">
+                    ${['a', 'b', 'c', 'd'].map(o => `
+                      <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer">
+                        <input type="radio" name="q${q.id}" value="${o}" class="w-4 h-4 text-blue-600">
+                        <span class="ml-3 text-gray-700">${q['option_' + o]}</span>
+                      </label>`).join('')}
+                  </div>
+                </div>`).join('')}
+            </div>
+            <button type="submit" class="w-full mt-8 btn btn-primary">Submit Test</button>
+          </form>
+        </div>`
+      document.getElementById('test-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        if (!questions || questions.length === 0) { notify('No questions found', 'error'); return }
+        let score = 0
+        questions.forEach(q => {
+          const sel = document.querySelector(`input[name="q${q.id}"]:checked`)?.value
+          if (sel && q.correct_answer === sel) score++
+        })
+        const total = questions.length
+        const user = await getUser()
+        if (user) {
+          await sb.from('test_scores').insert([{ user_id: user.id, test_id: id, score, total_questions: total }])
+        }
+        const pct = Math.round((score / total) * 100)
+        notify(`You scored ${score}/${total} (${pct}%)`)
+        setTimeout(() => { location.hash = '#/' }, 2000)
+      })
+    }
+
+    function notFound() {
+      return `<div class="text-center py-12">
+        <h1 class="text-2xl font-bold text-gray-900">Not Found</h1>
+        <a href="#/" class="text-blue-600 hover:underline">Back to Home</a>
+      </div>`
+    }
+
+    // ============ ADMIN PAGES ============
+    async function renderAdminDashboard() {
+      const { data: subjects } = await sb.from('subjects').select('id')
+      const { count } = await sb.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student')
+      app.innerHTML = nav(true) + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h1 class="text-4xl font-bold text-gray-900 mb-12">Admin Dashboard</h1>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div class="card"><p class="text-gray-600 text-sm font-medium">Total Subjects</p><p class="text-4xl font-bold text-blue-600 mt-2">${subjects?.length || 0}</p></div>
+            <div class="card"><p class="text-gray-600 text-sm font-medium">Total Students</p><p class="text-4xl font-bold text-green-600 mt-2">${count || 0}</p></div>
+            <div class="card"><p class="text-gray-600 text-sm font-medium">Status</p><p class="text-lg font-semibold text-gray-900 mt-2">✓ Active</p></div>
+          </div>
+          <div class="card">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <a href="#/admin/subjects" class="btn btn-primary text-center">Manage Subjects</a>
+              <a href="#/admin/resources" class="btn btn-secondary text-center">Upload Resources</a>
+              <a href="#/admin/tests" class="btn btn-outline text-center">Create Tests</a>
+            </div>
+          </div>
+        </div>`
+    }
+
+    async function renderAdminSubjects() {
+      const { data: subjects } = await sb.from('subjects').select('*').order('created_at', { ascending: false })
+      app.innerHTML = nav(true) + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Subjects</h1>
+            <button onclick="addSubject()" class="btn btn-primary">+ Add Subject</button>
+          </div>
+          <div class="space-y-4">
+            ${(subjects && subjects.length) ? subjects.map(s => `
+              <div class="card">
+                <div class="flex justify-between items-center">
+                  <h3 class="text-lg font-semibold text-gray-900">${s.name}</h3>
+                  <div class="flex gap-2">
+                    <button onclick="toggleChapters('${s.id}')" class="btn btn-outline text-sm">Chapters</button>
+                    <button onclick="editSubject('${s.id}','${s.name.replace(/'/g, "\\'")}')" class="btn btn-outline text-sm">Edit</button>
+                    <button onclick="delSubject('${s.id}')" class="btn btn-danger text-sm">Delete</button>
+                  </div>
+                </div>
+                <div id="ch-${s.id}" class="hidden mt-4 pl-4 space-y-2">
+                  <div id="ch-list-${s.id}"></div>
+                  <button onclick="addChapter('${s.id}')" class="btn btn-secondary text-sm">+ Add Chapter</button>
+                </div>
+              </div>`).join('') : '<p class="text-gray-600">No subjects yet</p>'}
+          </div>
+        </div>`
+    }
+
+    async function addSubject() {
+      const name = await modalInput('Enter subject name:', 'e.g., Mathematics')
+      if (!name) return
+      const grade = await modalInput('Enter class/grade:', 'e.g., VI, VII, VIII, IX, X')
+      const { error } = await sb.from('subjects').insert([{ name, grade }])
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Subject created'); renderAdminSubjects() }
+    }
+
+    async function editSubject(id, oldName) {
+      const name = await modalInput('Edit subject name:', 'Subject name', oldName)
+      if (!name || name === oldName) return
+      const { error } = await sb.from('subjects').update({ name }).eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Subject updated'); renderAdminSubjects() }
+    }
+
+    async function delSubject(id) {
+      if (!confirm('Delete this subject and all chapters?')) return
+      const { error } = await sb.from('subjects').delete().eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Subject deleted'); renderAdminSubjects() }
+    }
+
+    async function toggleChapters(subjectId) {
+      const box = document.getElementById(`ch-${subjectId}`)
+      const list = document.getElementById(`ch-list-${subjectId}`)
+      if (box.classList.contains('hidden')) {
+        const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', subjectId).order('created_at', { ascending: false })
+        list.innerHTML = (chapters && chapters.length) ? chapters.map(c => `
+          <div class="card flex justify-between items-center p-4">
+            <span class="font-medium text-gray-900">${c.title}</span>
+            <div class="flex gap-2">
+              <button onclick="editChapter('${c.id}','${c.title.replace(/'/g, "\\'")}')" class="btn btn-outline text-xs">Edit</button>
+              <button onclick="delChapter('${c.id}','${subjectId}')" class="btn btn-danger text-xs">Delete</button>
+            </div>
+          </div>`).join('') : '<p class="text-gray-600 text-sm">No chapters</p>'
+        box.classList.remove('hidden')
+      } else {
+        box.classList.add('hidden')
+      }
+    }
+
+    async function addChapter(subjectId) {
+      const title = await modalInput('Enter chapter title:', 'e.g., Chapter 1')
+      if (!title) return
+      const { error } = await sb.from('chapters').insert([{ subject_id: subjectId, title }])
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Chapter created'); renderAdminSubjects() }
+    }
+
+    async function editChapter(id, oldTitle) {
+      const title = await modalInput('Edit chapter title:', 'Chapter title', oldTitle)
+      if (!title || title === oldTitle) return
+      const { error } = await sb.from('chapters').update({ title }).eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Chapter updated'); renderAdminSubjects() }
+    }
+
+    async function delChapter(id, subjectId) {
+      if (!confirm('Delete this chapter and all resources?')) return
+      const { error } = await sb.from('chapters').delete().eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Chapter deleted'); renderAdminSubjects() }
+    }
+
+    async function renderAdminClasses() {
+      const { data: classes } = await sb.from('classes').select('*').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
+      app.innerHTML = nav(true) + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Classes</h1>
+            <button onclick="addClass()" class="btn btn-primary">+ Add Class</button>
+          </div>
+          <div class="space-y-4">
+            ${(classes && classes.length) ? classes.map(c => `
+              <div class="card flex justify-between items-center">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">${c.name}</h3>
+                  <p class="text-sm text-gray-600 mt-1">Grade: ${c.grade || 'N/A'} | Students: ${c.student_count || 0}</p>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="editClass('${c.id}','${c.name.replace(/'/g, "\\'")}')" class="btn btn-outline text-sm">Edit</button>
+                  <button onclick="delClass('${c.id}')" class="btn btn-danger text-sm">Delete</button>
+                </div>
+              </div>`).join('') : '<p class="text-gray-600">No classes yet. Create one to organize students.</p>'}
+          </div>
+        </div>`
+    }
+
+    async function addClass() {
+      const name = await modalInput('Enter class name:', 'e.g., Biology 101')
+      if (!name) return
+      const grade = await modalInput('Enter grade/level:', 'e.g., Grade 10')
+      const { error } = await sb.from('classes').insert([{ name, grade }]).catch(() => ({ error: { message: 'Classes table not initialized' } }))
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Class created'); renderAdminClasses() }
+    }
+
+    async function editClass(id, oldName) {
+      const name = await modalInput('Edit class name:', 'Class name', oldName)
+      if (!name || name === oldName) return
+      const { error } = await sb.from('classes').update({ name }).eq('id', id).catch(() => ({ error: { message: 'Update failed' } }))
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Class updated'); renderAdminClasses() }
+    }
+
+    async function delClass(id) {
+      if (!confirm('Delete this class?')) return
+      const { error } = await sb.from('classes').delete().eq('id', id).catch(() => ({ error: { message: 'Delete failed' } }))
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Class deleted'); renderAdminClasses() }
+    }
+
+    async function renderAdminResources() {
+      const { data: subjects } = await sb.from('subjects').select('*')
+      app.innerHTML = nav(true) + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h1 class="text-4xl font-bold text-gray-900 mb-8">Upload Resources</h1>
+          <div class="card mb-8">
+            <form id="upload-form">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm font-medium mb-2">Subject</label>
+                  <select id="r-subject" class="input">
+                    <option value="">Select a subject</option>
+                    ${(subjects || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">Chapter</label>
+                  <select id="r-chapter" class="input" disabled><option value="">Select a chapter</option></select>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm font-medium mb-2">Resource Title</label>
+                  <input type="text" id="r-title" class="input" placeholder="e.g., Chapter 1 Notes">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">File</label>
+                  <input type="file" id="r-file" class="input" accept=".pdf,.pptx,.docx,.mp4,.jpg,.jpeg,.png">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary">Upload Resource</button>
+            </form>
+          </div>
+          <div id="r-list"></div>
+        </div>`
+
+      document.getElementById('r-subject').addEventListener('change', async (e) => {
+        const sel = document.getElementById('r-chapter')
+        if (!e.target.value) { sel.innerHTML = '<option value="">Select a chapter</option>'; sel.disabled = true; return }
+        const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', e.target.value)
+        sel.innerHTML = '<option value="">Select a chapter</option>' + (chapters || []).map(c => `<option value="${c.id}">${c.title}</option>`).join('')
+        sel.disabled = false
+      })
+
+      document.getElementById('r-chapter').addEventListener('change', async (e) => {
+        if (!e.target.value) { document.getElementById('r-list').innerHTML = ''; return }
+        loadResourceList(e.target.value)
+      })
+
+      document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const chapterId = document.getElementById('r-chapter').value
+        const title = document.getElementById('r-title').value
+        const file = document.getElementById('r-file').files[0]
+        if (!chapterId || !title || !file) { notify('Please fill all fields', 'error'); return }
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `${Date.now()}-${safeName}`
+        notify('Uploading...', 'info')
+        const uploadRes = await sb.storage.from('resources').upload(path, file)
+        const upErr = uploadRes.error
+        console.log('Upload error:', upErr)
+        if (upErr) {
+          const msg = upErr.message || errMsg(upErr) || 'Upload failed'
+          notify('Upload failed: ' + msg, 'error')
+          console.log('Full error:', upErr)
+          return
+        }
+        const url = `${SUPABASE_URL}/storage/v1/object/public/resources/${path}`
+        const { error: dbErr } = await sb.from('resources').insert([{ chapter_id: chapterId, title, file_url: url, file_type: file.type }])
+        if (dbErr) notify('Failed to save: ' + errMsg(dbErr), 'error')
+        else { notify('Resource uploaded!'); loadResourceList(chapterId); document.getElementById('upload-form').reset(); document.getElementById('r-chapter').disabled = true }
+      })
+    }
+
+    async function loadResourceList(chapterId) {
+      const { data: resources } = await sb.from('resources').select('*').eq('chapter_id', chapterId).order('created_at', { ascending: false })
+      document.getElementById('r-list').innerHTML = `
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Resources in this Chapter</h2>
+        <div class="space-y-3">
+          ${(resources && resources.length) ? resources.map(r => `
+            <div class="card flex justify-between items-center">
+              <div><p class="font-medium text-gray-900">${r.title}</p><p class="text-xs text-gray-500">${fileExt(r.file_type)}</p></div>
+              <button onclick="delResource('${r.id}','${chapterId}')" class="btn btn-danger text-sm">Delete</button>
+            </div>`).join('') : '<p class="text-gray-600">No resources yet</p>'}
+        </div>`
+    }
+
+    async function delResource(id, chapterId) {
+      if (!confirm('Delete this resource?')) return
+      const { error } = await sb.from('resources').delete().eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Resource deleted'); loadResourceList(chapterId) }
+    }
+
+    async function renderAdminTests() {
+      const { data: subjects } = await sb.from('subjects').select('*')
+      app.innerHTML = nav(true) + `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h1 class="text-4xl font-bold text-gray-900 mb-8">Create Tests</h1>
+          <div class="card mb-8">
+            <form id="test-create-form">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm font-medium mb-2">Subject</label>
+                  <select id="t-subject" class="input">
+                    <option value="">Select a subject</option>
+                    ${(subjects || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">Chapter</label>
+                  <select id="t-chapter" class="input" disabled><option value="">Select a chapter</option></select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Test Title</label>
+                <input type="text" id="t-title" class="input" placeholder="e.g., Chapter 1 Quiz">
+              </div>
+              <button type="submit" class="btn btn-primary mt-4">Create Test</button>
+            </form>
+          </div>
+          <div id="t-list"></div>
+        </div>`
+
+      document.getElementById('t-subject').addEventListener('change', async (e) => {
+        const sel = document.getElementById('t-chapter')
+        document.getElementById('t-list').innerHTML = ''
+        if (!e.target.value) { sel.innerHTML = '<option value="">Select a chapter</option>'; sel.disabled = true; return }
+        const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', e.target.value)
+        sel.innerHTML = '<option value="">Select a chapter</option>' + (chapters || []).map(c => `<option value="${c.id}">${c.title}</option>`).join('')
+        sel.disabled = false
+      })
+
+      document.getElementById('t-chapter').addEventListener('change', async (e) => {
+        if (!e.target.value) { document.getElementById('t-list').innerHTML = ''; return }
+        loadTestList(e.target.value)
+      })
+
+      document.getElementById('test-create-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const chapterId = document.getElementById('t-chapter').value
+        const title = document.getElementById('t-title').value
+        if (!chapterId || !title) { notify('Select a chapter and enter a title', 'error'); return }
+        const { error } = await sb.from('tests').insert([{ chapter_id: chapterId, title }])
+        if (error) notify('Failed: ' + errMsg(error), 'error')
+        else { notify('Test created'); document.getElementById('t-title').value = ''; loadTestList(chapterId) }
+      })
+    }
+
+    async function loadTestList(chapterId) {
+      const { data: tests } = await sb.from('tests').select('*').eq('chapter_id', chapterId).order('created_at', { ascending: false })
+      document.getElementById('t-list').innerHTML = (tests && tests.length) ? `
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Tests</h2>
+        <div class="space-y-4">
+          ${tests.map(t => `
+            <div class="card">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">${t.title}</h3>
+                <button onclick="delTest('${t.id}','${chapterId}')" class="btn btn-danger text-sm">Delete Test</button>
+              </div>
+              <div id="q-${t.id}" class="space-y-3 mb-4"></div>
+              <button onclick="loadQuestions('${t.id}')" class="btn btn-outline text-sm">Load Questions</button>
+              <button onclick="addQuestion('${t.id}')" class="btn btn-secondary text-sm ml-2">+ Add Question</button>
+            </div>`).join('')}
+        </div>` : '<p class="text-gray-600">No tests in this chapter</p>'
+    }
+
+    async function loadQuestions(testId) {
+      const { data: questions } = await sb.from('questions').select('*').eq('test_id', testId).order('created_at', { ascending: false })
+      const box = document.getElementById(`q-${testId}`)
+      box.innerHTML = (questions && questions.length) ? questions.map((q, i) => `
+        <div class="p-4 bg-gray-50 rounded border border-gray-200">
+          <p class="font-medium text-gray-900 mb-2">${i + 1}. ${q.question}</p>
+          <div class="text-sm text-gray-600 space-y-1 mb-3">
+            <p>A) ${q.option_a}</p><p>B) ${q.option_b}</p><p>C) ${q.option_c}</p><p>D) ${q.option_d}</p>
+            <p class="font-semibold mt-2">Correct: ${(q.correct_answer || '').toUpperCase()}</p>
+          </div>
+          <button onclick="delQuestion('${q.id}','${testId}')" class="btn btn-danger text-xs">Delete Question</button>
+        </div>`).join('') : '<p class="text-gray-600">No questions yet</p>'
+    }
+
+    async function addQuestion(testId) {
+      const question = await modalInput('Enter question:', 'What is the answer?')
+      if (!question) return
+      const a = await modalInput('Option A:', 'e.g., Answer A')
+      if (!a) return
+      const b = await modalInput('Option B:', 'e.g., Answer B')
+      if (!b) return
+      const c = await modalInput('Option C:', 'e.g., Answer C')
+      if (!c) return
+      const d = await modalInput('Option D:', 'e.g., Answer D')
+      if (!d) return
+      let correct = await modalInput('Correct answer:', 'Enter a, b, c, or d')
+      correct = correct?.toLowerCase()?.trim()
+      if (!correct || !['a', 'b', 'c', 'd'].includes(correct)) { notify('Correct answer must be a, b, c, or d', 'error'); return }
+      const { error } = await sb.from('questions').insert([{ test_id: testId, question, option_a: a, option_b: b, option_c: c, option_d: d, correct_answer: correct }])
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Question added'); loadQuestions(testId) }
+    }
+
+    async function delQuestion(id, testId) {
+      if (!confirm('Delete this question?')) return
+      const { error } = await sb.from('questions').delete().eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Question deleted'); loadQuestions(testId) }
+    }
+
+    async function delTest(id, chapterId) {
+      if (!confirm('Delete this test and all questions?')) return
+      const { error } = await sb.from('tests').delete().eq('id', id)
+      if (error) notify('Failed: ' + errMsg(error), 'error')
+      else { notify('Test deleted'); loadTestList(chapterId) }
+    }
+
+    // ============ ROUTER ============
+    async function route() {
+      const hash = location.hash.replace(/^#/, '') || '/'
+
+      // Sync session
+      try {
+        const user = await getUser()
+        if (user) localStorage.setItem('userId', user.id)
+        else localStorage.removeItem('userId')
+      } catch (e) {}
+
+      // Public routes
+      if (hash === '/login') return renderLogin()
+      if (hash === '/signup') return renderSignup()
+      if (hash === '/') return renderHome()
+      if (hash.startsWith('/subject/')) return renderSubject(hash.split('/')[2])
+      if (hash.startsWith('/chapter/')) return renderChapter(hash.split('/')[2])
+      if (hash.startsWith('/test/')) return renderTest(hash.split('/')[2])
+
+      // Admin routes - require admin role
+      if (hash.startsWith('/admin')) {
+        const user = await getUser()
+        console.log('Admin check - user:', user?.email, 'id:', user?.id)
+        if (!user) { location.hash = '#/login'; return }
+        const role = await getRole(user.id)
+        console.log('Admin check - role:', role)
+        if (role !== 'admin') { notify('Admin access required', 'error'); location.hash = '#/'; return }
+        if (hash === '/admin') return renderAdminDashboard()
+        if (hash === '/admin/subjects') return renderAdminSubjects()
+        if (hash === '/admin/classes') return renderAdminClasses()
+        if (hash === '/admin/resources') return renderAdminResources()
+        if (hash === '/admin/tests') return renderAdminTests()
+      }
+
+      app.innerHTML = nav() + notFound()
+    }
+
+    window.addEventListener('hashchange', route)
+    window.addEventListener('load', route)
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') localStorage.removeItem('userId')
+      else if (session?.user) localStorage.setItem('userId', session.user.id)
+    })
+  </script>
+</body>
+</html>
