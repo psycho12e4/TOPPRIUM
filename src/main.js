@@ -10,6 +10,7 @@ import { renderAdminDashboard, initAdminDashboardEvents } from './pages/admin-da
 import { renderAdminSubjects, initAdminSubjectsEvents } from './pages/admin-subjects.js'
 import { renderAdminResources, initAdminResourcesEvents } from './pages/admin-resources.js'
 import { renderAdminTests, initAdminTestsEvents } from './pages/admin-tests.js'
+import { renderAdminReview, initAdminReviewEvents } from './pages/admin-review.js'
 
 const app = document.getElementById('app')
 const router = new Router()
@@ -102,6 +103,11 @@ router.on('/admin/resources', async () => {
 router.on('/admin/tests', async () => {
   app.innerHTML = await renderAdminTests()
   initAdminTestsEvents()
+})
+
+router.on('/admin/review', async () => {
+  app.innerHTML = await renderAdminReview()
+  initAdminReviewEvents()
 })
 
 router.on('*', async () => {

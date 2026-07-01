@@ -83,7 +83,7 @@ export function initAdminTestsEvents() {
     chapterSelect.addEventListener('change', async (e) => {
       const chapterId = e.target.value
       if (chapterId) {
-        const { data: tests } = await getTests(chapterId)
+        const { data: tests } = await getTests(chapterId, { includeAll: true })
         testsContainer.innerHTML = tests?.length ? `
           <h2 class="text-2xl font-bold text-gray-900 mb-4">Tests</h2>
           <div class="space-y-4">

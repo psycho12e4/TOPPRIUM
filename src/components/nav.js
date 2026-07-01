@@ -21,6 +21,7 @@ export function renderNav(isAdmin = false) {
               <a href="/admin/subjects" class="text-gray-600 hover:text-gray-900">Subjects</a>
               <a href="/admin/resources" class="text-gray-600 hover:text-gray-900">Resources</a>
               <a href="/admin/tests" class="text-gray-600 hover:text-gray-900">Tests</a>
+              <a href="/admin/review" class="text-gray-600 hover:text-gray-900">Review</a>
             `}
 
             ${loggedIn ? `

@@ -11,6 +11,7 @@ export async function renderLogin() {
         <div class="card">
           <h2 class="text-3xl font-bold text-center mb-8">Login</h2>
           <form id="login-form">
+            <p id="auth-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"></p>
             <div class="mb-4">
               <label class="block text-sm font-medium mb-2">Email</label>
               <input type="email" id="email" required class="input" placeholder="you@example.com">
@@ -38,6 +39,7 @@ export async function renderSignup() {
         <div class="card">
           <h2 class="text-3xl font-bold text-center mb-8">Sign Up</h2>
           <form id="signup-form">
+            <p id="auth-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"></p>
             <div class="mb-4">
               <label class="block text-sm font-medium mb-2">Email</label>
               <input type="email" id="email" required class="input" placeholder="you@example.com">
@@ -66,6 +68,24 @@ function getErrorMessage(error) {
   return ''
 }
 
+// Show an error both inline (persistent) and as a toast, so it can't be missed.
+function showAuthError(message) {
+  const el = document.getElementById('auth-error')
+  if (el) {
+    el.textContent = message
+    el.classList.remove('hidden')
+  }
+  showNotification(message, 'error')
+}
+
+function clearAuthError() {
+  const el = document.getElementById('auth-error')
+  if (el) {
+    el.textContent = ''
+    el.classList.add('hidden')
+  }
+}
+
 export function initAuthEvents() {
   const loginForm = document.getElementById('login-form')
   const signupForm = document.getElementById('signup-form')
@@ -73,6 +93,7 @@ export function initAuthEvents() {
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault()
+      clearAuthError()
       const email = document.getElementById('email').value
       const password = document.getElementById('password').value
 
@@ -80,13 +101,13 @@ export function initAuthEvents() {
       try {
         result = await signIn(email, password)
       } catch (ex) {
-        showNotification(ex?.message || 'Login failed', 'error')
+        showAuthError(getErrorMessage(ex) || 'Login failed. Please try again.')
         return
       }
 
       const { data, error } = result
       if (error || !data?.user) {
-        showNotification(getErrorMessage(error) || 'Invalid login credentials', 'error')
+        showAuthError(getErrorMessage(error) || 'Invalid login credentials')
       } else {
         showNotification('Logged in successfully')
         localStorage.setItem('userId', data.user.id)
@@ -99,6 +120,7 @@ export function initAuthEvents() {
   if (signupForm) {
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault()
+      clearAuthError()
       const email = document.getElementById('email').value
       const password = document.getElementById('password').value
 
@@ -106,14 +128,28 @@ export function initAuthEvents() {
       try {
         result = await signUp(email, password)
       } catch (ex) {
-        showNotification(ex?.message || 'Signup failed', 'error')
+        showAuthError(getErrorMessage(ex) || 'Signup failed. Please try again.')
         return
       }
 
       const { data, error } = result
 
-      // Signup succeeded with a session — go straight in
-      if (!error && data?.session && data?.user) {
+      // Any explicit error from signup — surface it directly.
+      if (error) {
+        showAuthError(getErrorMessage(error) || 'Signup failed')
+        return
+      }
+
+      // Supabase returns a "fake success" for an already-registered email:
+      // a user with an empty identities array and no session. Detect it so we
+      // don't fall through to a login attempt and show a misleading message.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        showAuthError('An account with this email already exists. Please log in instead.')
+        return
+      }
+
+      // Signup succeeded with a session — go straight in.
+      if (data?.session && data?.user) {
         showNotification('Account created! Logging in...')
         localStorage.setItem('userId', data.user.id)
         Router.setPath('/')
@@ -121,19 +157,10 @@ export function initAuthEvents() {
         return
       }
 
-      // Signup returned a user but no session (email confirm on, or rate limit)
-      // OR signup errored (user may already exist) — fall back to login attempt
-      const { data: loginData, error: loginError } = await signIn(email, password)
-      if (!loginError && loginData?.user) {
-        showNotification('Logged in successfully')
-        localStorage.setItem('userId', loginData.user.id)
-        Router.setPath('/')
-        window.location.href = '/'
-        return
-      }
-
-      const msg = getErrorMessage(error) || getErrorMessage(loginError) || 'Signup failed'
-      showNotification(msg, 'error')
+      // User created but no session — email confirmation is required.
+      showNotification('Account created! Please check your email to confirm your address before logging in.')
+      Router.setPath('/login')
+      window.location.href = '/login'
     })
   }
 }

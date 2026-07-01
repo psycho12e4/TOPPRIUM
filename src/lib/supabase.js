@@ -116,12 +116,13 @@ export async function deleteChapter(id) {
   return { error }
 }
 
-export async function getResources(chapterId) {
-  const { data, error } = await supabase
+export async function getResources(chapterId, { includeAll = false } = {}) {
+  let query = supabase
     .from('resources')
     .select('*')
     .eq('chapter_id', chapterId)
-    .order('created_at', { ascending: false })
+  if (!includeAll) query = query.eq('status', 'published')
+  const { data, error } = await query.order('created_at', { ascending: false })
   return { data, error }
 }
 
@@ -148,12 +149,13 @@ export async function uploadFile(bucket, path, file) {
   return { data, error }
 }
 
-export async function getTests(chapterId) {
-  const { data, error } = await supabase
+export async function getTests(chapterId, { includeAll = false } = {}) {
+  let query = supabase
     .from('tests')
     .select('*')
     .eq('chapter_id', chapterId)
-    .order('created_at', { ascending: false })
+  if (!includeAll) query = query.eq('status', 'published')
+  const { data, error } = await query.order('created_at', { ascending: false })
   return { data, error }
 }
 
@@ -229,6 +231,46 @@ export async function getUserTestScores(userId) {
     .select('*, tests(title), chapters(title)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// ---- Review queue (admin) --------------------------------------------
+// Pending AI-generated content awaiting approval. Admins can read these
+// thanks to the RLS policies added in supabase/add_review_status.sql.
+export async function getPendingTests() {
+  const { data, error } = await supabase
+    .from('tests')
+    .select('*, questions(*), chapters(title, subjects(name))')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+export async function getPendingResources() {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('*, chapters(title, subjects(name))')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// status must be one of 'published' | 'rejected' (approve / reject).
+export async function updateTestStatus(id, status) {
+  const { data, error } = await supabase
+    .from('tests')
+    .update({ status })
+    .eq('id', id)
+    .select()
+  return { data, error }
+}
+
+export async function updateResourceStatus(id, status) {
+  const { data, error } = await supabase
+    .from('resources')
+    .update({ status })
+    .eq('id', id)
+    .select()
   return { data, error }
 }
 

@@ -86,7 +86,7 @@ export function initAdminResourcesEvents() {
     chapterSelect.addEventListener('change', async (e) => {
       const chapterId = e.target.value
       if (chapterId) {
-        const { data: resources } = await getResources(chapterId)
+        const { data: resources } = await getResources(chapterId, { includeAll: true })
         resourcesContainer.innerHTML = `
           <h2 class="text-2xl font-bold text-gray-900 mb-4">Resources in this Chapter</h2>
           <div class="space-y-3">

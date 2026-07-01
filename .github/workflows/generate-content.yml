@@ -1,0 +1,37 @@
+name: Generate AI content
+
+on:
+  schedule:
+    # Daily at 01:00 UTC. Adjust as needed (cron is in UTC).
+    - cron: '0 1 * * *'
+  workflow_dispatch: # allows manual "Run workflow" from the Actions tab
+    inputs:
+      chapter_ids:
+        description: 'Comma-separated chapter UUIDs to target (leave blank for auto gap-fill)'
+        required: false
+        default: ''
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: node scripts/generate.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REVIEW_NOTIFY_EMAIL: ${{ secrets.REVIEW_NOTIFY_EMAIL }}
+          REVIEW_FROM_EMAIL: ${{ secrets.REVIEW_FROM_EMAIL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          MAX_CHAPTERS_PER_RUN: ${{ secrets.MAX_CHAPTERS_PER_RUN }}
+          # From the manual-trigger input; empty on scheduled runs (auto mode).
+          TARGET_CHAPTER_IDS: ${{ github.event.inputs.chapter_ids }}
