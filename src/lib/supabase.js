@@ -2,6 +2,31 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_PROJECT_REF = (() => {
+  try {
+    return new URL(SUPABASE_URL).hostname.split('.')[0]
+  } catch {
+    return ''
+  }
+})()
+
+function clearStoredAuth() {
+  localStorage.removeItem('userId')
+
+  if (!SUPABASE_PROJECT_REF) return
+
+  const authStorageKey = `sb-${SUPABASE_PROJECT_REF}-auth-token`
+  localStorage.removeItem(authStorageKey)
+}
+
+function withTimeout(promise, ms, message) {
+  let timeoutId
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms)
+  })
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId))
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -18,8 +43,18 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
+  try {
+    const { data: { user } } = await withTimeout(
+      supabase.auth.getUser(),
+      3000,
+      'Supabase auth is not responding'
+    )
+    return user
+  } catch (e) {
+    clearStoredAuth()
+    console.error('Could not restore Supabase session:', e)
+    return null
+  }
 }
 
 export async function getUserProfile(userId) {
@@ -126,11 +161,21 @@ export async function getResources(chapterId, { includeAll = false } = {}) {
   return { data, error }
 }
 
-export async function createResource(chapterId, title, fileUrl, fileType) {
+export async function createResource(chapterId, title, fileUrl, fileType, { accessLevel = 'everyone', userIds = [] } = {}) {
   const { data, error } = await supabase
     .from('resources')
-    .insert([{ chapter_id: chapterId, title, file_url: fileUrl, file_type: fileType }])
+    .insert([{ chapter_id: chapterId, title, file_url: fileUrl, file_type: fileType, access_level: accessLevel }])
     .select()
+
+  if (error || accessLevel !== 'selected' || !userIds.length || !data?.[0]?.id) {
+    return { data, error }
+  }
+
+  const { error: accessError } = await supabase
+    .from('resource_allowed_users')
+    .insert(userIds.map(userId => ({ resource_id: data[0].id, user_id: userId })))
+
+  if (accessError) return { data, error: accessError }
   return { data, error }
 }
 
@@ -139,6 +184,38 @@ export async function deleteResource(id) {
     .from('resources')
     .delete()
     .eq('id', id)
+  return { error }
+}
+
+export async function getResourceAllowedUsers(resourceId) {
+  const { data, error } = await supabase
+    .from('resource_allowed_users')
+    .select('user_id')
+    .eq('resource_id', resourceId)
+  return { data, error }
+}
+
+export async function updateResourceAccess(resourceId, { accessLevel = 'everyone', userIds = [] } = {}) {
+  const { error: updateError } = await supabase
+    .from('resources')
+    .update({ access_level: accessLevel })
+    .eq('id', resourceId)
+
+  if (updateError) return { error: updateError }
+
+  const { error: deleteError } = await supabase
+    .from('resource_allowed_users')
+    .delete()
+    .eq('resource_id', resourceId)
+
+  if (deleteError) return { error: deleteError }
+
+  if (accessLevel !== 'selected' || userIds.length === 0) return { error: null }
+
+  const { error } = await supabase
+    .from('resource_allowed_users')
+    .insert(userIds.map(userId => ({ resource_id: resourceId, user_id: userId })))
+
   return { error }
 }
 
@@ -168,11 +245,21 @@ export async function getTest(id) {
   return { data, error }
 }
 
-export async function createTest(chapterId, title) {
+export async function createTest(chapterId, title, { accessLevel = 'everyone', userIds = [] } = {}) {
   const { data, error } = await supabase
     .from('tests')
-    .insert([{ chapter_id: chapterId, title }])
+    .insert([{ chapter_id: chapterId, title, access_level: accessLevel }])
     .select()
+
+  if (error || accessLevel !== 'selected' || !userIds.length || !data?.[0]?.id) {
+    return { data, error }
+  }
+
+  const { error: accessError } = await supabase
+    .from('test_allowed_users')
+    .insert(userIds.map(userId => ({ test_id: data[0].id, user_id: userId })))
+
+  if (accessError) return { data, error: accessError }
   return { data, error }
 }
 
@@ -181,6 +268,38 @@ export async function deleteTest(id) {
     .from('tests')
     .delete()
     .eq('id', id)
+  return { error }
+}
+
+export async function getTestAllowedUsers(testId) {
+  const { data, error } = await supabase
+    .from('test_allowed_users')
+    .select('user_id')
+    .eq('test_id', testId)
+  return { data, error }
+}
+
+export async function updateTestAccess(testId, { accessLevel = 'everyone', userIds = [] } = {}) {
+  const { error: updateError } = await supabase
+    .from('tests')
+    .update({ access_level: accessLevel })
+    .eq('id', testId)
+
+  if (updateError) return { error: updateError }
+
+  const { error: deleteError } = await supabase
+    .from('test_allowed_users')
+    .delete()
+    .eq('test_id', testId)
+
+  if (deleteError) return { error: deleteError }
+
+  if (accessLevel !== 'selected' || userIds.length === 0) return { error: null }
+
+  const { error } = await supabase
+    .from('test_allowed_users')
+    .insert(userIds.map(userId => ({ test_id: testId, user_id: userId })))
+
   return { error }
 }
 
@@ -280,4 +399,12 @@ export async function getStudentCount() {
     .select('id', { count: 'exact', head: true })
     .eq('role', 'student')
   return { count: count || 0, error }
+}
+
+export async function getProfiles() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, role')
+    .order('email', { ascending: true, nullsFirst: false })
+  return { data, error }
 }
