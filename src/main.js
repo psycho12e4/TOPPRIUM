@@ -2,6 +2,7 @@ import { Router } from './lib/router.js'
 import { getCurrentUser, getUserProfile, supabase } from './lib/supabase.js'
 
 import { renderLogin, renderSignup, initAuthEvents } from './pages/auth.js'
+import { renderLanding, initLandingEvents } from './pages/landing.js'
 import { renderHome, initHomeEvents } from './pages/home.js'
 import { renderSubject, initSubjectEvents } from './pages/subject.js'
 import { renderChapter, initChapterEvents } from './pages/chapter.js'
@@ -14,12 +15,20 @@ import { renderAdminReview, initAdminReviewEvents } from './pages/admin-review.j
 
 const app = document.getElementById('app')
 const router = new Router()
+const LANDING_PATH = '/landing'
+const LANDING_SEEN_KEY = 'toppriumLandingSeen'
+
+function hasSeenLanding() {
+  return localStorage.getItem(LANDING_SEEN_KEY) === 'true'
+}
+
+function markLandingSeen() {
+  localStorage.setItem(LANDING_SEEN_KEY, 'true')
+}
 
 async function checkAuth(path) {
   const isAdminRoute = path.startsWith('/admin')
   const authRoutes = ['/login', '/signup']
-
-  if (authRoutes.includes(path)) return true
 
   let user = null
   try {
@@ -28,7 +37,17 @@ async function checkAuth(path) {
     console.error('getCurrentUser failed:', e)
   }
 
+  if (path === LANDING_PATH) return true
+  if (user && authRoutes.includes(path)) return true
+
   if (!user) {
+    if (!hasSeenLanding()) {
+      Router.setPath(LANDING_PATH)
+      return false
+    }
+
+    if (authRoutes.includes(path)) return true
+
     Router.setPath('/login')
     return false
   }
@@ -60,6 +79,12 @@ router.on('/login', async () => {
 router.on('/signup', async () => {
   app.innerHTML = await renderSignup()
   initAuthEvents()
+})
+
+router.on(LANDING_PATH, async () => {
+  markLandingSeen()
+  app.innerHTML = await renderLanding()
+  initLandingEvents()
 })
 
 router.on('/', async () => {
