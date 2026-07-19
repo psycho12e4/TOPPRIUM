@@ -174,8 +174,19 @@ window.addEventListener('click', (e) => {
   const anchor = e.target.closest('a')
   if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
     const path = Router.getAppPath(new URL(anchor.href).pathname)
+    const isAppRoute = path === '/' ||
+      path === '/login' ||
+      path === '/signup' ||
+      path === LANDING_PATH ||
+      path.startsWith('/subject/') ||
+      path.startsWith('/chapter/') ||
+      path.startsWith('/test/') ||
+      path.startsWith('/admin')
+
+    if (!isAppRoute) return
+
+    e.preventDefault()
     if (path !== Router.getPath()) {
-      e.preventDefault()
       Router.setPath(path)
       navigate()
     }
