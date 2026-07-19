@@ -50,11 +50,34 @@ export class Router {
   }
 
   static getPath() {
-    const path = window.location.pathname
+    return Router.getAppPath(window.location.pathname)
+  }
+
+  static getAppPath(pathname) {
+    const basePath = Router.getBasePath()
+    const path = basePath && pathname.startsWith(`${basePath}/`)
+      ? pathname.slice(basePath.length)
+      : pathname === basePath ? '/' : pathname
+
     return path === '/' ? '/' : path.replace(/\/$/, '')
   }
 
   static setPath(path) {
-    window.history.pushState({}, '', path)
+    window.history.pushState({}, '', Router.getUrl(path))
+  }
+
+  static getUrl(path) {
+    const basePath = Router.getBasePath()
+    const normalizedPath = path === '/' ? '/' : `/${path.replace(/^\/|\/$/g, '')}`
+
+    if (!basePath) return normalizedPath
+    return normalizedPath === '/' ? `${basePath}/` : `${basePath}${normalizedPath}`
+  }
+
+  static getBasePath() {
+    const pathname = window.location.pathname
+    return pathname === '/TOPPRIUM' || pathname.startsWith('/TOPPRIUM/')
+      ? '/TOPPRIUM'
+      : ''
   }
 }

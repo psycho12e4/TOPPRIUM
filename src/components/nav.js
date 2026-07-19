@@ -46,7 +46,7 @@ export function initNavEvents() {
         console.error('Sign out error:', e)
       }
       localStorage.removeItem('userId')
-      window.location.href = '/login'
+      window.location.href = Router.getUrl('/login')
     })
   }
 }

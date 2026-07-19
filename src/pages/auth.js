@@ -112,7 +112,7 @@ export function initAuthEvents() {
         showNotification('Logged in successfully')
         localStorage.setItem('userId', data.user.id)
         Router.setPath('/')
-        window.location.href = '/'
+        window.location.href = Router.getUrl('/')
       }
     })
   }
@@ -153,14 +153,14 @@ export function initAuthEvents() {
         showNotification('Account created! Logging in...')
         localStorage.setItem('userId', data.user.id)
         Router.setPath('/')
-        window.location.href = '/'
+        window.location.href = Router.getUrl('/')
         return
       }
 
       // User created but no session — email confirmation is required.
       showNotification('Account created! Please check your email to confirm your address before logging in.')
       Router.setPath('/login')
-      window.location.href = '/login'
+      window.location.href = Router.getUrl('/login')
     })
   }
 }

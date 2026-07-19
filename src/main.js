@@ -173,7 +173,7 @@ window.addEventListener('popstate', navigate)
 window.addEventListener('click', (e) => {
   const anchor = e.target.closest('a')
   if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
-    const path = new URL(anchor.href).pathname
+    const path = Router.getAppPath(new URL(anchor.href).pathname)
     if (path !== Router.getPath()) {
       e.preventDefault()
       Router.setPath(path)
