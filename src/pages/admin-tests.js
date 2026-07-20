@@ -58,11 +58,11 @@ export async function renderAdminTests() {
             <div id="test-user-picker" class="hidden">
               <label class="block text-sm font-medium mb-2">Selected users</label>
               <select id="test-user-ids" class="input min-h-32" multiple>
-                ${students.map(user => `
-                  <option value="${user.id}">${user.email || user.id}</option>
-                `).join('')}
+                ${renderUserOptions(students)}
               </select>
-              <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select more than one user.</p>
+              <p class="text-xs text-gray-500 mt-1">
+                ${students.length ? 'Hold Ctrl/Cmd to select more than one user.' : 'Create student accounts and run the access SQL migration if this stays empty.'}
+              </p>
             </div>
           </div>
 
@@ -76,10 +76,137 @@ export async function renderAdminTests() {
 }
 
 function renderUserOptions(students, selectedUserIds = []) {
+  if (!students.length) {
+    return '<option value="" disabled>No student users found</option>'
+  }
+
   const selected = new Set(selectedUserIds)
   return students.map(user => `
     <option value="${user.id}" ${selected.has(user.id) ? 'selected' : ''}>${user.email || user.id}</option>
   `).join('')
+}
+
+const QUESTION_FORMAT_EXAMPLE = `Q: What is photosynthesis?
+A: Making food using sunlight
+B: Breathing oxygen
+C: Drinking water
+D: Moving nutrients
+Answer: A
+
+Q: Which planet is known as the Red Planet?
+A: Earth
+B: Mars
+C: Jupiter
+D: Venus
+Answer: B`
+
+function createEmptyQuestion() {
+  return {
+    question: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correct: '',
+  }
+}
+
+function parseQuestionsFromText(text) {
+  const lines = text.replace(/\r/g, '').split('\n').map(line => line.trim()).filter(Boolean)
+  const questions = []
+  let current = null
+  let lastField = null
+
+  function ensureQuestion() {
+    if (!current) current = createEmptyQuestion()
+    return current
+  }
+
+  function appendToField(field, value) {
+    const question = ensureQuestion()
+    question[field] = question[field] ? `${question[field]} ${value}` : value
+    lastField = field
+  }
+
+  function pushCurrent() {
+    if (!current) return
+    const missing = []
+    if (!current.question) missing.push('question')
+    if (!current.optionA) missing.push('A')
+    if (!current.optionB) missing.push('B')
+    if (!current.optionC) missing.push('C')
+    if (!current.optionD) missing.push('D')
+    if (!current.correct) missing.push('Answer')
+
+    if (missing.length) {
+      throw new Error(`Question ${questions.length + 1} is missing: ${missing.join(', ')}`)
+    }
+
+    questions.push(current)
+    current = null
+    lastField = null
+  }
+
+  lines.forEach(line => {
+    const questionMatch = line.match(/^(?:(?:q|question)\s*[:.)-]\s*|\d+\s*[.)-]\s+)(.+)$/i)
+    if (questionMatch) {
+      pushCurrent()
+      current = createEmptyQuestion()
+      appendToField('question', questionMatch[1])
+      return
+    }
+
+    const answerMatch = line.match(/^(?:answer|correct|correct answer)\s*[:.)-]?\s*([a-d])\b/i)
+    if (answerMatch) {
+      ensureQuestion().correct = answerMatch[1].toLowerCase()
+      lastField = 'correct'
+      return
+    }
+
+    const optionMatch = line.match(/^([a-d])\s*[\).:-]\s*(.+)$/i)
+    if (optionMatch) {
+      const field = `option${optionMatch[1].toUpperCase()}`
+      appendToField(field, optionMatch[2])
+      return
+    }
+
+    if (lastField && lastField !== 'correct') {
+      appendToField(lastField, line)
+    } else {
+      appendToField('question', line)
+    }
+  })
+
+  pushCurrent()
+  return questions
+}
+
+function renderQuestionPasteForm(testId) {
+  return `
+    <div class="question-paste-editor mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
+      <div class="flex justify-between items-start gap-4 mb-3">
+        <div>
+          <h4 class="font-semibold text-gray-900">Paste Formatted Questions</h4>
+          <p class="text-sm text-gray-500">Paste one or more questions. Separate questions with a blank line.</p>
+        </div>
+        <button class="close-question-paste-btn btn btn-outline text-sm" type="button">Close</button>
+      </div>
+      <textarea
+        class="question-paste-input input min-h-64 font-mono text-sm"
+        data-test-id="${testId}"
+        spellcheck="false"
+        placeholder="${QUESTION_FORMAT_EXAMPLE}"
+      ></textarea>
+      <details class="mt-3 text-sm text-gray-600">
+        <summary class="cursor-pointer font-medium text-gray-700">Paste format</summary>
+        <pre class="mt-2 p-3 bg-white border border-gray-200 rounded overflow-auto text-xs">${QUESTION_FORMAT_EXAMPLE}</pre>
+      </details>
+      <div class="flex gap-2 mt-4">
+        <button class="save-pasted-questions-btn btn btn-primary text-sm" type="button">Add Questions</button>
+        <button class="fill-question-example-btn btn btn-outline text-sm" type="button">Use Example</button>
+      </div>
+    </div>
+  `
 }
 
 export function initAdminTestsEvents() {
@@ -152,7 +279,7 @@ export function initAdminTestsEvents() {
                   Load Questions
                 </button>
                 <button class="add-question-btn btn btn-secondary text-sm ml-2" data-test-id="${test.id}">
-                  + Add Question
+                  + Paste Questions
                 </button>
               </div>
             `).join('')}
@@ -161,8 +288,10 @@ export function initAdminTestsEvents() {
 
         testsContainer.querySelectorAll('.manage-test-access-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
-            const testId = event.currentTarget.dataset.id
-            const currentAccessLevel = event.currentTarget.dataset.accessLevel
+            const button = event.currentTarget
+            const testId = button.dataset.id
+            const currentAccessLevel = button.dataset.accessLevel
+            const card = button.closest('.card')
             const { data: allowedUsers, error } = await getTestAllowedUsers(testId)
 
             if (error) {
@@ -171,7 +300,6 @@ export function initAdminTestsEvents() {
             }
 
             const selectedUserIds = allowedUsers?.map(row => row.user_id) || []
-            const card = event.currentTarget.closest('.card')
             let editor = card.querySelector('.test-access-editor')
 
             if (editor) {
@@ -288,30 +416,66 @@ export function initAdminTestsEvents() {
         testsContainer.querySelectorAll('.add-question-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
             const testId = event.currentTarget.dataset.testId
-            const question = prompt('Enter question:')
-            if (!question) return
-            const optionA = prompt('Option A:')
-            const optionB = prompt('Option B:')
-            const optionC = prompt('Option C:')
-            const optionD = prompt('Option D:')
-            let correct = prompt('Correct answer (a/b/c/d):')?.toLowerCase()?.trim()
+            const card = event.currentTarget.closest('.card')
+            const questionsContainer = document.getElementById(`questions-${testId}`)
 
-            if (!optionA || !optionB || !optionC || !optionD || !correct) {
-              showNotification('All fields are required', 'error')
-              return
-            }
-            if (!['a', 'b', 'c', 'd'].includes(correct)) {
-              showNotification('Correct answer must be a, b, c, or d', 'error')
+            let editor = card.querySelector('.question-paste-editor')
+            if (editor) {
+              editor.remove()
               return
             }
 
-            const { error } = await createQuestion(testId, question, optionA, optionB, optionC, optionD, correct)
-            if (!error) {
-              showNotification('Question added')
+            questionsContainer.insertAdjacentHTML('beforebegin', renderQuestionPasteForm(testId))
+            editor = card.querySelector('.question-paste-editor')
+
+            editor.querySelector('.close-question-paste-btn').addEventListener('click', () => editor.remove())
+            editor.querySelector('.fill-question-example-btn').addEventListener('click', () => {
+              editor.querySelector('.question-paste-input').value = QUESTION_FORMAT_EXAMPLE
+            })
+            editor.querySelector('.save-pasted-questions-btn').addEventListener('click', async () => {
+              const input = editor.querySelector('.question-paste-input')
+              let parsedQuestions
+
+              try {
+                parsedQuestions = parseQuestionsFromText(input.value)
+              } catch (error) {
+                showNotification(error.message, 'error')
+                return
+              }
+
+              if (!parsedQuestions.length) {
+                showNotification('Paste at least one formatted question', 'error')
+                return
+              }
+
+              const saveButton = editor.querySelector('.save-pasted-questions-btn')
+              saveButton.disabled = true
+              saveButton.textContent = 'Adding...'
+
+              let created = 0
+              for (const item of parsedQuestions) {
+                const { error } = await createQuestion(
+                  testId,
+                  item.question,
+                  item.optionA,
+                  item.optionB,
+                  item.optionC,
+                  item.optionD,
+                  item.correct
+                )
+
+                if (error) {
+                  saveButton.disabled = false
+                  saveButton.textContent = 'Add Questions'
+                  showNotification(`Added ${created}, then failed: ${error.message || ''}`, 'error')
+                  return
+                }
+                created += 1
+              }
+
+              showNotification(`${created} question${created === 1 ? '' : 's'} added`)
               location.reload()
-            } else {
-              showNotification('Failed to add question: ' + (error.message || ''), 'error')
-            }
+            })
           })
         })
       } else {

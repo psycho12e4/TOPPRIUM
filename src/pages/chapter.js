@@ -1,17 +1,17 @@
 import { getChapter, getResources, getTests } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
-import { getFileIcon, formatFileType } from '../lib/utils.js'
+import { getFileIcon, formatFileType, renderErrorBanner } from '../lib/utils.js'
 
 export async function renderChapter(chapterId) {
-  const { data: chapter } = await getChapter(chapterId)
-  const { data: resources } = await getResources(chapterId)
-  const { data: tests } = await getTests(chapterId)
+  const { data: chapter, error: chapterError } = await getChapter(chapterId)
+  const { data: resources, error: resourcesError } = await getResources(chapterId)
+  const { data: tests, error: testsError } = await getTests(chapterId)
 
   if (!chapter) {
     return `
       ${renderNav()}
       <div class="max-w-7xl mx-auto px-4 py-12 text-center">
-        <p class="text-gray-600">Chapter not found</p>
+        <p class="text-gray-600">${chapterError ? 'Could not load this chapter. Please try again.' : 'Chapter not found'}</p>
         <a href="/" class="text-blue-600 hover:underline">Back to Home</a>
       </div>
     `
@@ -19,6 +19,7 @@ export async function renderChapter(chapterId) {
 
   return `
     ${renderNav()}
+    ${resourcesError || testsError ? renderErrorBanner('Some content on this page failed to load. Please refresh.') : ''}
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <a href="/" class="text-blue-600 hover:underline mb-4">← Back to Home</a>
       <h1 class="text-4xl font-bold text-gray-900 mb-2">${chapter.title}</h1>

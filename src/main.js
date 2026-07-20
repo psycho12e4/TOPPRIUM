@@ -41,12 +41,12 @@ async function checkAuth(path) {
   if (user && authRoutes.includes(path)) return true
 
   if (!user) {
-    if (!hasSeenLanding()) {
+    if (path === LANDING_PATH || authRoutes.includes(path)) return true
+
+    if (path === '/') {
       Router.setPath(LANDING_PATH)
       return false
     }
-
-    if (authRoutes.includes(path)) return true
 
     Router.setPath('/login')
     return false
@@ -188,8 +188,8 @@ window.addEventListener('click', (e) => {
     e.preventDefault()
     if (path !== Router.getPath()) {
       Router.setPath(path)
-      navigate()
     }
+    navigate()
   }
 })
 

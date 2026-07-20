@@ -65,3 +65,13 @@ export function showModal(content) {
 export function closeModal() {
   document.querySelectorAll('.modal').forEach(m => m.remove())
 }
+
+export function renderErrorBanner(message = 'Something went wrong loading this page. Please try again.') {
+  return `
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <div class="rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+        ${message}
+      </div>
+    </div>
+  `
+}

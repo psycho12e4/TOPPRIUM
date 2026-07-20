@@ -118,7 +118,7 @@
           <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
               <a href="#/" class="font-bold text-2xl text-blue-600">TOPPRIUM</a>
-              <div class="flex items-center gap-4">
+              <div class="flex items-center gap-4 flex-wrap">
                 ${isAdmin ? `
                   <a href="#/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a>
                   <a href="#/admin/subjects" class="text-gray-600 hover:text-gray-900">Subjects</a>
@@ -169,8 +169,16 @@
         </div>`
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault()
-        const email = email_val('email'), password = email_val('password')
-        const { data, error } = await sb.auth.signInWithPassword({ email, password })
+        const email = document.getElementById('email').value
+        const password = document.getElementById('password').value
+        let result
+        try {
+          result = await sb.auth.signInWithPassword({ email, password })
+        } catch (ex) {
+          notify(ex?.message || 'Network error - could not reach Supabase', 'error')
+          return
+        }
+        const { data, error } = result
         if (error || !data?.user) {
           notify(errMsg(error) || 'Invalid login credentials', 'error')
         } else {
@@ -206,8 +214,16 @@
         </div>`
       document.getElementById('signup-form').addEventListener('submit', async (e) => {
         e.preventDefault()
-        const email = email_val('email'), password = email_val('password')
-        const { data, error } = await sb.auth.signUp({ email, password })
+        const email = document.getElementById('email').value
+        const password = document.getElementById('password').value
+        let result
+        try {
+          result = await sb.auth.signUp({ email, password })
+        } catch (ex) {
+          notify(ex?.message || 'Network error - could not reach Supabase', 'error')
+          return
+        }
+        const { data, error } = result
         if (!error && data?.session && data?.user) {
           localStorage.setItem('userId', data.user.id)
           notify('Account created!')
@@ -224,8 +240,6 @@
         }
       })
     }
-
-    function email_val(id) { return document.getElementById(id).value }
 
     // ============ STUDENT PAGES ============
     async function renderHome() {
@@ -266,24 +280,14 @@
 
       function filterSubjects() {
         let filtered = allSubjects
-        if (selectedClass) {
-          filtered = filtered.filter(s => s.grade === selectedClass)
-        }
+        if (selectedClass) filtered = filtered.filter(s => s.grade === selectedClass)
         const q = search.value.toLowerCase()
-        if (q) {
-          filtered = filtered.filter(s => s.name.toLowerCase().includes(q))
-        }
+        if (q) filtered = filtered.filter(s => s.name.toLowerCase().includes(q))
         document.getElementById('subjects-grid').innerHTML = renderSubjectCards(filtered)
       }
 
-      classSelect.addEventListener('change', (e) => {
-        selectedClass = e.target.value
-        filterSubjects()
-      })
-
-      search.addEventListener('input', () => {
-        filterSubjects()
-      })
+      classSelect.addEventListener('change', (e) => { selectedClass = e.target.value; filterSubjects() })
+      search.addEventListener('input', filterSubjects)
     }
 
     function renderSubjectCards(subjects) {
@@ -304,8 +308,10 @@
     }
 
     async function renderSubject(id) {
-      const { data: subject } = await sb.from('subjects').select('*').eq('id', id).single()
-      const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', id).order('created_at', { ascending: false })
+      const [{ data: subject }, { data: chapters }] = await Promise.all([
+        sb.from('subjects').select('*').eq('id', id).single(),
+        sb.from('chapters').select('*').eq('subject_id', id).order('created_at', { ascending: false }),
+      ])
       if (!subject) { app.innerHTML = nav() + notFound(); return }
       app.innerHTML = nav() + `
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -324,9 +330,11 @@
     }
 
     async function renderChapter(id) {
-      const { data: chapter } = await sb.from('chapters').select('*').eq('id', id).single()
-      const { data: resources } = await sb.from('resources').select('*').eq('chapter_id', id).order('created_at', { ascending: false })
-      const { data: tests } = await sb.from('tests').select('*').eq('chapter_id', id).order('created_at', { ascending: false })
+      const [{ data: chapter }, { data: resources }, { data: tests }] = await Promise.all([
+        sb.from('chapters').select('*').eq('id', id).single(),
+        sb.from('resources').select('*').eq('chapter_id', id).order('created_at', { ascending: false }),
+        sb.from('tests').select('*').eq('chapter_id', id).order('created_at', { ascending: false }),
+      ])
       if (!chapter) { app.innerHTML = nav() + notFound(); return }
       app.innerHTML = nav() + `
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -451,7 +459,10 @@
             ${(subjects && subjects.length) ? subjects.map(s => `
               <div class="card">
                 <div class="flex justify-between items-center">
-                  <h3 class="text-lg font-semibold text-gray-900">${s.name}</h3>
+                  <div>
+                    <h3 class="text-lg font-semibold text-gray-900">${s.name}</h3>
+                    ${s.grade ? `<p class="text-xs text-blue-600 font-medium">Class ${s.grade}</p>` : ''}
+                  </div>
                   <div class="flex gap-2">
                     <button onclick="toggleChapters('${s.id}')" class="btn btn-outline text-sm">Chapters</button>
                     <button onclick="editSubject('${s.id}','${s.name.replace(/'/g, "\\'")}')" class="btn btn-outline text-sm">Edit</button>
@@ -534,7 +545,7 @@
     }
 
     async function renderAdminClasses() {
-      const { data: classes } = await sb.from('classes').select('*').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
+      const { data: classes, error } = await sb.from('classes').select('*').order('created_at', { ascending: false })
       app.innerHTML = nav(true) + `
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div class="flex justify-between items-center mb-8">
@@ -542,11 +553,12 @@
             <button onclick="addClass()" class="btn btn-primary">+ Add Class</button>
           </div>
           <div class="space-y-4">
-            ${(classes && classes.length) ? classes.map(c => `
+            ${error ? `<p class="text-red-600">Classes table not set up yet. Run the SQL migration.</p>` :
+              (classes && classes.length) ? classes.map(c => `
               <div class="card flex justify-between items-center">
                 <div>
                   <h3 class="text-lg font-semibold text-gray-900">${c.name}</h3>
-                  <p class="text-sm text-gray-600 mt-1">Grade: ${c.grade || 'N/A'} | Students: ${c.student_count || 0}</p>
+                  <p class="text-sm text-gray-600 mt-1">Grade: ${c.grade || 'N/A'}</p>
                 </div>
                 <div class="flex gap-2">
                   <button onclick="editClass('${c.id}','${c.name.replace(/'/g, "\\'")}')" class="btn btn-outline text-sm">Edit</button>
@@ -560,8 +572,8 @@
     async function addClass() {
       const name = await modalInput('Enter class name:', 'e.g., Biology 101')
       if (!name) return
-      const grade = await modalInput('Enter grade/level:', 'e.g., Grade 10')
-      const { error } = await sb.from('classes').insert([{ name, grade }]).catch(() => ({ error: { message: 'Classes table not initialized' } }))
+      const grade = await modalInput('Enter grade/level:', 'e.g., VI, VII, VIII, IX, X')
+      const { error } = await sb.from('classes').insert([{ name, grade }])
       if (error) notify('Failed: ' + errMsg(error), 'error')
       else { notify('Class created'); renderAdminClasses() }
     }
@@ -569,14 +581,14 @@
     async function editClass(id, oldName) {
       const name = await modalInput('Edit class name:', 'Class name', oldName)
       if (!name || name === oldName) return
-      const { error } = await sb.from('classes').update({ name }).eq('id', id).catch(() => ({ error: { message: 'Update failed' } }))
+      const { error } = await sb.from('classes').update({ name }).eq('id', id)
       if (error) notify('Failed: ' + errMsg(error), 'error')
       else { notify('Class updated'); renderAdminClasses() }
     }
 
     async function delClass(id) {
       if (!confirm('Delete this class?')) return
-      const { error } = await sb.from('classes').delete().eq('id', id).catch(() => ({ error: { message: 'Delete failed' } }))
+      const { error } = await sb.from('classes').delete().eq('id', id)
       if (error) notify('Failed: ' + errMsg(error), 'error')
       else { notify('Class deleted'); renderAdminClasses() }
     }
@@ -619,7 +631,7 @@
 
       document.getElementById('r-subject').addEventListener('change', async (e) => {
         const sel = document.getElementById('r-chapter')
-        if (!e.target.value) { sel.innerHTML = '<option value="">Select a chapter</option>'; sel.disabled = true; return }
+        if (!e.target.value) { sel.innerHTML = '<option value="">Select a chapter</option>'; sel.disabled = true; document.getElementById('r-list').innerHTML = ''; return }
         const { data: chapters } = await sb.from('chapters').select('*').eq('subject_id', e.target.value)
         sel.innerHTML = '<option value="">Select a chapter</option>' + (chapters || []).map(c => `<option value="${c.id}">${c.title}</option>`).join('')
         sel.disabled = false
@@ -641,13 +653,7 @@
         notify('Uploading...', 'info')
         const uploadRes = await sb.storage.from('resources').upload(path, file)
         const upErr = uploadRes.error
-        console.log('Upload error:', upErr)
-        if (upErr) {
-          const msg = upErr.message || errMsg(upErr) || 'Upload failed'
-          notify('Upload failed: ' + msg, 'error')
-          console.log('Full error:', upErr)
-          return
-        }
+        if (upErr) { notify('Upload failed: ' + (upErr.message || errMsg(upErr)), 'error'); return }
         const url = `${SUPABASE_URL}/storage/v1/object/public/resources/${path}`
         const { error: dbErr } = await sb.from('resources').insert([{ chapter_id: chapterId, title, file_url: url, file_type: file.type }])
         if (dbErr) notify('Failed to save: ' + errMsg(dbErr), 'error')
@@ -799,14 +805,12 @@
     async function route() {
       const hash = location.hash.replace(/^#/, '') || '/'
 
-      // Sync session
       try {
         const user = await getUser()
         if (user) localStorage.setItem('userId', user.id)
         else localStorage.removeItem('userId')
       } catch (e) {}
 
-      // Public routes
       if (hash === '/login') return renderLogin()
       if (hash === '/signup') return renderSignup()
       if (hash === '/') return renderHome()
@@ -814,13 +818,10 @@
       if (hash.startsWith('/chapter/')) return renderChapter(hash.split('/')[2])
       if (hash.startsWith('/test/')) return renderTest(hash.split('/')[2])
 
-      // Admin routes - require admin role
       if (hash.startsWith('/admin')) {
         const user = await getUser()
-        console.log('Admin check - user:', user?.email, 'id:', user?.id)
         if (!user) { location.hash = '#/login'; return }
         const role = await getRole(user.id)
-        console.log('Admin check - role:', role)
         if (role !== 'admin') { notify('Admin access required', 'error'); location.hash = '#/'; return }
         if (hash === '/admin') return renderAdminDashboard()
         if (hash === '/admin/subjects') return renderAdminSubjects()
@@ -834,6 +835,12 @@
 
     window.addEventListener('hashchange', route)
     window.addEventListener('load', route)
+    window.addEventListener('click', (e) => {
+      const anchor = e.target.closest('a')
+      if (anchor && anchor.hash && anchor.hash === window.location.hash) {
+        route()
+      }
+    })
     sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') localStorage.removeItem('userId')
       else if (session?.user) localStorage.setItem('userId', session.user.id)

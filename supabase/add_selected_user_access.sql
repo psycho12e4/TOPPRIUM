@@ -19,6 +19,15 @@ $$;
 alter table profiles
   add column if not exists email text;
 
+insert into profiles (id, email, role)
+select u.id, u.email, 'student'
+from auth.users u
+where not exists (
+  select 1
+  from profiles p
+  where p.id = u.id
+);
+
 update profiles p
 set email = u.email
 from auth.users u
@@ -126,6 +135,175 @@ as $$
   );
 $$;
 
+create or replace function public.admin_create_resource(
+  p_chapter_id uuid,
+  p_title text,
+  p_file_url text,
+  p_file_type text,
+  p_access_level text default 'everyone',
+  p_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_resource_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can create resources' using errcode = '42501';
+  end if;
+
+  if p_access_level not in ('everyone', 'selected') then
+    raise exception 'Invalid access level' using errcode = '22023';
+  end if;
+
+  if p_access_level = 'selected' and coalesce(array_length(p_user_ids, 1), 0) = 0 then
+    raise exception 'Select at least one user' using errcode = '22023';
+  end if;
+
+  insert into resources (chapter_id, title, file_url, file_type, access_level)
+  values (p_chapter_id, p_title, p_file_url, p_file_type, p_access_level)
+  returning id into v_resource_id;
+
+  if p_access_level = 'selected' then
+    insert into resource_allowed_users (resource_id, user_id)
+    select v_resource_id, user_id
+    from unnest(p_user_ids) as user_id
+    on conflict do nothing;
+  end if;
+
+  return v_resource_id;
+end;
+$$;
+
+create or replace function public.admin_update_resource_access(
+  p_resource_id uuid,
+  p_access_level text,
+  p_user_ids uuid[] default '{}'
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can update resource access' using errcode = '42501';
+  end if;
+
+  if p_access_level not in ('everyone', 'selected') then
+    raise exception 'Invalid access level' using errcode = '22023';
+  end if;
+
+  if p_access_level = 'selected' and coalesce(array_length(p_user_ids, 1), 0) = 0 then
+    raise exception 'Select at least one user' using errcode = '22023';
+  end if;
+
+  update resources
+  set access_level = p_access_level,
+      updated_at = now()
+  where id = p_resource_id;
+
+  delete from resource_allowed_users
+  where resource_id = p_resource_id;
+
+  if p_access_level = 'selected' then
+    insert into resource_allowed_users (resource_id, user_id)
+    select p_resource_id, user_id
+    from unnest(p_user_ids) as user_id
+    on conflict do nothing;
+  end if;
+end;
+$$;
+
+create or replace function public.admin_create_test(
+  p_chapter_id uuid,
+  p_title text,
+  p_access_level text default 'everyone',
+  p_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_test_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can create tests' using errcode = '42501';
+  end if;
+
+  if p_access_level not in ('everyone', 'selected') then
+    raise exception 'Invalid access level' using errcode = '22023';
+  end if;
+
+  if p_access_level = 'selected' and coalesce(array_length(p_user_ids, 1), 0) = 0 then
+    raise exception 'Select at least one user' using errcode = '22023';
+  end if;
+
+  insert into tests (chapter_id, title, access_level)
+  values (p_chapter_id, p_title, p_access_level)
+  returning id into v_test_id;
+
+  if p_access_level = 'selected' then
+    insert into test_allowed_users (test_id, user_id)
+    select v_test_id, user_id
+    from unnest(p_user_ids) as user_id
+    on conflict do nothing;
+  end if;
+
+  return v_test_id;
+end;
+$$;
+
+create or replace function public.admin_update_test_access(
+  p_test_id uuid,
+  p_access_level text,
+  p_user_ids uuid[] default '{}'
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can update test access' using errcode = '42501';
+  end if;
+
+  if p_access_level not in ('everyone', 'selected') then
+    raise exception 'Invalid access level' using errcode = '22023';
+  end if;
+
+  if p_access_level = 'selected' and coalesce(array_length(p_user_ids, 1), 0) = 0 then
+    raise exception 'Select at least one user' using errcode = '22023';
+  end if;
+
+  update tests
+  set access_level = p_access_level,
+      updated_at = now()
+  where id = p_test_id;
+
+  delete from test_allowed_users
+  where test_id = p_test_id;
+
+  if p_access_level = 'selected' then
+    insert into test_allowed_users (test_id, user_id)
+    select p_test_id, user_id
+    from unnest(p_user_ids) as user_id
+    on conflict do nothing;
+  end if;
+end;
+$$;
+
+grant execute on function public.admin_create_resource(uuid, text, text, text, text, uuid[]) to authenticated;
+grant execute on function public.admin_update_resource_access(uuid, text, uuid[]) to authenticated;
+grant execute on function public.admin_create_test(uuid, text, text, uuid[]) to authenticated;
+grant execute on function public.admin_update_test_access(uuid, text, uuid[]) to authenticated;
+
 drop policy if exists "Resources are readable by everyone" on resources;
 drop policy if exists "Published resources are readable by everyone" on resources;
 drop policy if exists "Visible resources are readable" on resources;
@@ -133,11 +311,21 @@ create policy "Visible resources are readable"
   on resources for select
   using (public.can_access_resource(id));
 
+drop policy if exists "Admins can insert resources" on resources;
+create policy "Admins can insert resources"
+  on resources for insert
+  with check (public.is_admin());
+
 drop policy if exists "Admins can update resources" on resources;
 create policy "Admins can update resources"
   on resources for update
   using (public.is_admin())
   with check (public.is_admin());
+
+drop policy if exists "Admins can delete resources" on resources;
+create policy "Admins can delete resources"
+  on resources for delete
+  using (public.is_admin());
 
 drop policy if exists "Tests are readable by everyone" on tests;
 drop policy if exists "Published tests are readable by everyone" on tests;
@@ -146,11 +334,21 @@ create policy "Visible tests are readable"
   on tests for select
   using (public.can_access_test(id));
 
+drop policy if exists "Admins can insert tests" on tests;
+create policy "Admins can insert tests"
+  on tests for insert
+  with check (public.is_admin());
+
 drop policy if exists "Admins can update tests" on tests;
 create policy "Admins can update tests"
   on tests for update
   using (public.is_admin())
   with check (public.is_admin());
+
+drop policy if exists "Admins can delete tests" on tests;
+create policy "Admins can delete tests"
+  on tests for delete
+  using (public.is_admin());
 
 drop policy if exists "Resource access rows are readable by admins" on resource_allowed_users;
 create policy "Resource access rows are readable by admins"

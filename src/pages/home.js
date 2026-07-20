@@ -1,11 +1,13 @@
 import { getSubjects } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
+import { renderErrorBanner } from '../lib/utils.js'
 
 export async function renderHome() {
-  const { data: subjects } = await getSubjects()
+  const { data: subjects, error } = await getSubjects()
 
   return `
     ${renderNav()}
+    ${error ? renderErrorBanner('Could not load subjects. Please refresh the page.') : ''}
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div class="text-center mb-12">
         <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to TOPPRIUM</h1>
@@ -24,7 +26,7 @@ export async function renderHome() {
             </div>
             <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Browse →</div>
           </a>
-        `).join('') || '<p class="col-span-3 text-center text-gray-600">No subjects available yet</p>'}
+        `).join('') || (error ? '' : '<p class="col-span-3 text-center text-gray-600">No subjects available yet</p>')}
       </div>
     </div>
   `

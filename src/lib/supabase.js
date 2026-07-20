@@ -165,20 +165,14 @@ export async function getResources(chapterId, { includeAll = false } = {}) {
 }
 
 export async function createResource(chapterId, title, fileUrl, fileType, { accessLevel = 'everyone', userIds = [] } = {}) {
-  const { data, error } = await supabase
-    .from('resources')
-    .insert([{ chapter_id: chapterId, title, file_url: fileUrl, file_type: fileType, access_level: accessLevel }])
-    .select()
-
-  if (error || accessLevel !== 'selected' || !userIds.length || !data?.[0]?.id) {
-    return { data, error }
-  }
-
-  const { error: accessError } = await supabase
-    .from('resource_allowed_users')
-    .insert(userIds.map(userId => ({ resource_id: data[0].id, user_id: userId })))
-
-  if (accessError) return { data, error: accessError }
+  const { data, error } = await supabase.rpc('admin_create_resource', {
+    p_chapter_id: chapterId,
+    p_title: title,
+    p_file_url: fileUrl,
+    p_file_type: fileType,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+  })
   return { data, error }
 }
 
@@ -199,26 +193,11 @@ export async function getResourceAllowedUsers(resourceId) {
 }
 
 export async function updateResourceAccess(resourceId, { accessLevel = 'everyone', userIds = [] } = {}) {
-  const { error: updateError } = await supabase
-    .from('resources')
-    .update({ access_level: accessLevel })
-    .eq('id', resourceId)
-
-  if (updateError) return { error: updateError }
-
-  const { error: deleteError } = await supabase
-    .from('resource_allowed_users')
-    .delete()
-    .eq('resource_id', resourceId)
-
-  if (deleteError) return { error: deleteError }
-
-  if (accessLevel !== 'selected' || userIds.length === 0) return { error: null }
-
-  const { error } = await supabase
-    .from('resource_allowed_users')
-    .insert(userIds.map(userId => ({ resource_id: resourceId, user_id: userId })))
-
+  const { error } = await supabase.rpc('admin_update_resource_access', {
+    p_resource_id: resourceId,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+  })
   return { error }
 }
 
@@ -249,20 +228,12 @@ export async function getTest(id) {
 }
 
 export async function createTest(chapterId, title, { accessLevel = 'everyone', userIds = [] } = {}) {
-  const { data, error } = await supabase
-    .from('tests')
-    .insert([{ chapter_id: chapterId, title, access_level: accessLevel }])
-    .select()
-
-  if (error || accessLevel !== 'selected' || !userIds.length || !data?.[0]?.id) {
-    return { data, error }
-  }
-
-  const { error: accessError } = await supabase
-    .from('test_allowed_users')
-    .insert(userIds.map(userId => ({ test_id: data[0].id, user_id: userId })))
-
-  if (accessError) return { data, error: accessError }
+  const { data, error } = await supabase.rpc('admin_create_test', {
+    p_chapter_id: chapterId,
+    p_title: title,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+  })
   return { data, error }
 }
 
@@ -283,26 +254,11 @@ export async function getTestAllowedUsers(testId) {
 }
 
 export async function updateTestAccess(testId, { accessLevel = 'everyone', userIds = [] } = {}) {
-  const { error: updateError } = await supabase
-    .from('tests')
-    .update({ access_level: accessLevel })
-    .eq('id', testId)
-
-  if (updateError) return { error: updateError }
-
-  const { error: deleteError } = await supabase
-    .from('test_allowed_users')
-    .delete()
-    .eq('test_id', testId)
-
-  if (deleteError) return { error: deleteError }
-
-  if (accessLevel !== 'selected' || userIds.length === 0) return { error: null }
-
-  const { error } = await supabase
-    .from('test_allowed_users')
-    .insert(userIds.map(userId => ({ test_id: testId, user_id: userId })))
-
+  const { error } = await supabase.rpc('admin_update_test_access', {
+    p_test_id: testId,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+  })
   return { error }
 }
 
@@ -405,9 +361,22 @@ export async function getStudentCount() {
 }
 
 export async function getProfiles() {
-  const { data, error } = await supabase
+  const result = await supabase
     .from('profiles')
     .select('id, email, role')
     .order('email', { ascending: true, nullsFirst: false })
-  return { data, error }
+
+  if (!result.error) return result
+
+  const fallback = await supabase
+    .from('profiles')
+    .select('id, role')
+    .order('created_at', { ascending: false })
+
+  if (fallback.error) return result
+
+  return {
+    data: fallback.data?.map(profile => ({ ...profile, email: null })) || [],
+    error: null,
+  }
 }

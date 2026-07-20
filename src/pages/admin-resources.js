@@ -12,10 +12,12 @@ import {
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { showNotification } from '../lib/utils.js'
 
+let students = []
+
 export async function renderAdminResources() {
   const { data: subjects } = await getSubjects()
   const { data: profiles } = await getProfiles()
-  const students = profiles?.filter(profile => profile.role !== 'admin') || []
+  students = profiles?.filter(profile => profile.role !== 'admin') || []
 
   return `
     ${renderNav(true)}
@@ -62,11 +64,11 @@ export async function renderAdminResources() {
             <div id="resource-user-picker" class="hidden">
               <label class="block text-sm font-medium mb-2">Selected users</label>
               <select id="resource-user-ids" class="input min-h-32" multiple>
-                ${students.map(user => `
-                  <option value="${user.id}">${user.email || user.id}</option>
-                `).join('')}
+                ${renderUserOptions(students)}
               </select>
-              <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select more than one user.</p>
+              <p class="text-xs text-gray-500 mt-1">
+                ${students.length ? 'Hold Ctrl/Cmd to select more than one user.' : 'Create student accounts and run the access SQL migration if this stays empty.'}
+              </p>
             </div>
           </div>
 
@@ -80,6 +82,10 @@ export async function renderAdminResources() {
 }
 
 function renderUserOptions(students, selectedUserIds = []) {
+  if (!students.length) {
+    return '<option value="" disabled>No student users found</option>'
+  }
+
   const selected = new Set(selectedUserIds)
   return students.map(user => `
     <option value="${user.id}" ${selected.has(user.id) ? 'selected' : ''}>${user.email || user.id}</option>
@@ -157,18 +163,22 @@ export function initAdminResourcesEvents() {
 
         resourcesContainer.querySelectorAll('.manage-resource-access-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
-            const resourceId = event.currentTarget.dataset.id
-            const currentAccessLevel = event.currentTarget.dataset.accessLevel
-            const { data: allowedUsers, error } = await getResourceAllowedUsers(resourceId)
+            console.log('Manage access clicked!', event.currentTarget);
+            try {
+              const btn = event.currentTarget
+              const resourceId = btn.dataset.id
+              const currentAccessLevel = btn.dataset.accessLevel
+              const card = btn.closest('.card')
+              const { data: allowedUsers, error } = await getResourceAllowedUsers(resourceId)
 
-            if (error) {
-              showNotification('Failed to load access list: ' + (error.message || ''), 'error')
-              return
-            }
+              if (error) {
+                console.error('Error fetching allowed users:', error)
+                showNotification('Failed to load access list: ' + (error.message || ''), 'error')
+                return
+              }
 
-            const selectedUserIds = allowedUsers?.map(row => row.user_id) || []
-            const card = event.currentTarget.closest('.card')
-            let editor = card.querySelector('.resource-access-editor')
+              const selectedUserIds = allowedUsers?.map(row => row.user_id) || []
+              let editor = card.querySelector('.resource-access-editor')
 
             if (editor) {
               editor.remove()
@@ -219,12 +229,17 @@ export function initAdminResourcesEvents() {
 
               const { error: saveError } = await updateResourceAccess(resourceId, { accessLevel, userIds })
               if (saveError) {
+                console.error('Error saving access:', saveError)
                 showNotification('Failed to update access: ' + (saveError.message || ''), 'error')
               } else {
                 showNotification('Access updated')
                 chapterSelect.dispatchEvent(new Event('change'))
               }
             })
+            } catch (err) {
+              console.error('Unhandled error in manage access click:', err)
+              showNotification('An error occurred. Check console.', 'error')
+            }
           })
         })
 
