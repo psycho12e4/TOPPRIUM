@@ -3,12 +3,16 @@ import { showNotification } from '../lib/utils.js'
 import { Router } from '../lib/router.js'
 import { renderNav } from '../components/nav.js'
 import { initGoogleSignIn } from '../googleAuth.js'
+import toppriumQr from '../assets/topprium-qr.png'
 
 export async function renderLogin() {
   return `
     ${renderNav()}
-    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-brand-50/40 to-transparent">
+    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-brand-600 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.15),_transparent_60%)]">
       <div class="w-full max-w-md">
+        <div class="text-center mb-6">
+          <span class="text-6xl font-extrabold text-white tracking-tight">TOPPRIUM</span>
+        </div>
         <div class="card !p-8">
           <h2 class="text-3xl font-extrabold text-center mb-2">Welcome back</h2>
           <p class="text-center text-slate-500 text-sm mb-8">Log in to continue learning</p>
@@ -29,6 +33,16 @@ export async function renderLogin() {
             Don't have an account? <a href="/signup" class="text-blue-600 hover:underline">Sign up</a>
           </p>
         </div>
+        <div class="card !p-6 mt-4">
+          <h3 class="text-sm font-semibold text-center mb-3">Share Topprium with others</h3>
+          <div class="flex flex-col items-center gap-3">
+            <img src="${toppriumQr}" alt="QR code linking to Topprium" class="w-32 h-32 rounded-lg border border-slate-200" />
+            <div class="flex w-full gap-2">
+              <input id="share-link-input" type="text" readonly class="input flex-1 text-xs" />
+              <button id="copy-share-link" type="button" class="btn btn-outline text-sm whitespace-nowrap">Copy link</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `
@@ -37,7 +51,7 @@ export async function renderLogin() {
 export async function renderSignup() {
   return `
     ${renderNav()}
-    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-brand-50/40 to-transparent">
+    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-brand-600 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.15),_transparent_60%)]">
       <div class="w-full max-w-md">
         <div class="card !p-8">
           <h2 class="text-3xl font-extrabold text-center mb-2">Create your account</h2>
@@ -90,9 +104,30 @@ function clearAuthError() {
   }
 }
 
+function initShareWidget() {
+  const linkInput = document.getElementById('share-link-input')
+  const copyBtn = document.getElementById('copy-share-link')
+  if (!linkInput || !copyBtn) return
+
+  const shareUrl = 'https://psycho12e4.github.io/TOPPRIUM/'
+  linkInput.value = shareUrl
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      showNotification('Link copied to clipboard')
+    } catch (err) {
+      console.warn('Clipboard copy failed:', err)
+      showAuthError('Could not copy link')
+    }
+  })
+}
+
 export function initAuthEvents() {
   const loginForm = document.getElementById('login-form')
   const signupForm = document.getElementById('signup-form')
+
+  initShareWidget()
 
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
