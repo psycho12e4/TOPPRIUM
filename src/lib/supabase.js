@@ -86,6 +86,43 @@ export async function getSubject(id) {
   return { data, error }
 }
 
+export async function getBooks(subjectId) {
+  const { data, error } = await supabase
+    .from('books')
+    .select('*')
+    .eq('subject_id', subjectId)
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = null) {
+  const { data, error } = await supabase
+    .from('books')
+    .insert([{ subject_id: subjectId, name, file_url: fileUrl, file_type: fileType, cover_url: coverUrl }])
+    .select()
+  return { data, error }
+}
+
+export async function updateBook(id, { name, coverUrl } = {}) {
+  const patch = {}
+  if (name !== undefined) patch.name = name
+  if (coverUrl !== undefined) patch.cover_url = coverUrl
+  const { data, error } = await supabase
+    .from('books')
+    .update(patch)
+    .eq('id', id)
+    .select()
+  return { data, error }
+}
+
+export async function deleteBook(id) {
+  const { error } = await supabase
+    .from('books')
+    .delete()
+    .eq('id', id)
+  return { error }
+}
+
 export async function createSubject(name) {
   const { data, error } = await supabase
     .from('subjects')
@@ -182,6 +219,53 @@ export async function deleteResource(id) {
     .delete()
     .eq('id', id)
   return { error }
+}
+
+export async function getFolders(chapterId) {
+  const { data, error } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('chapter_id', chapterId)
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+export async function createFolder(chapterId, name, logoUrl = null) {
+  const { data, error } = await supabase
+    .from('folders')
+    .insert([{ chapter_id: chapterId, name, logo_url: logoUrl }])
+    .select()
+  return { data, error }
+}
+
+export async function updateFolder(id, { name, logoUrl } = {}) {
+  const patch = {}
+  if (name !== undefined) patch.name = name
+  if (logoUrl !== undefined) patch.logo_url = logoUrl
+  const { data, error } = await supabase
+    .from('folders')
+    .update(patch)
+    .eq('id', id)
+    .select()
+  return { data, error }
+}
+
+export async function deleteFolder(id) {
+  const { error } = await supabase
+    .from('folders')
+    .delete()
+    .eq('id', id)
+  return { error }
+}
+
+// Assign (or unassign, with folderId = null) a resource to a folder.
+export async function setResourceFolder(resourceId, folderId) {
+  const { data, error } = await supabase
+    .from('resources')
+    .update({ folder_id: folderId })
+    .eq('id', resourceId)
+    .select()
+  return { data, error }
 }
 
 export async function getResourceAllowedUsers(resourceId) {

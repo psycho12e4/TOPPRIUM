@@ -1,6 +1,8 @@
-import { getChapter, getChapterResourcesPreview, getChapterTestsPreview } from '../lib/supabase.js'
+import { getChapter, getChapterResourcesPreview, getChapterTestsPreview, getFolders } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { getFileIcon, formatFileType, renderErrorBanner } from '../lib/utils.js'
+import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
+import defaultFolderLogo from '../assets/default-folder-logo.png'
 
 const LOCK_ICON = `
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
@@ -24,10 +26,61 @@ function renderLockedCard(title, subtitle) {
   `
 }
 
+function renderResourceCard(resource) {
+  if (COURSE_ACCESS_ENABLED && resource.locked) {
+    return renderLockedCard(resource.title, 'Locked — buy the course to unlock')
+  }
+  return `
+    <a href="${resource.file_url}" target="_blank" class="card card-interactive">
+      <div class="flex items-center gap-3">
+        <span class="w-11 h-11 shrink-0 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg font-bold">${getFileIcon(resource.file_type)}</span>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-semibold text-slate-900 truncate">${resource.title}</h3>
+          <p class="text-xs text-slate-400 mt-1">${formatFileType(resource.file_type)}</p>
+        </div>
+      </div>
+    </a>
+  `
+}
+
+function renderFolderGroup(folder, folderResources) {
+  const logo = folder.logo_url || defaultFolderLogo
+  return `
+    <div class="mb-8">
+      <div class="flex items-center gap-2.5 mb-4">
+        <img src="${logo}" alt="" class="w-7 h-7 rounded-md object-cover">
+        <h3 class="text-lg font-semibold text-slate-800">${folder.name}</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+        ${folderResources.map(renderResourceCard).join('')}
+      </div>
+    </div>
+  `
+}
+
 export async function renderChapter(chapterId) {
   const { data: chapter, error: chapterError } = await getChapter(chapterId)
-  const { data: resources, error: resourcesError } = await getChapterResourcesPreview(chapterId)
-  const { data: tests, error: testsError } = await getChapterTestsPreview(chapterId)
+  const { data: rawResources, error: resourcesError } = await getChapterResourcesPreview(chapterId)
+  const { data: rawTests, error: testsError } = await getChapterTestsPreview(chapterId)
+  const { data: folders } = await getFolders(chapterId)
+
+  // Locked-preview cards are a course-access feature still behind a flag —
+  // until it's enabled, keep the old behavior of simply not showing items
+  // the student can't access.
+  const resources = COURSE_ACCESS_ENABLED ? rawResources : rawResources?.filter(r => !r.locked)
+  const tests = COURSE_ACCESS_ENABLED ? rawTests : rawTests?.filter(t => !t.locked)
+
+  const foldersById = new Map((folders || []).map(f => [f.id, f]))
+  const groupedResources = new Map()
+  const ungroupedResources = []
+  for (const resource of resources || []) {
+    if (resource.folder_id && foldersById.has(resource.folder_id)) {
+      if (!groupedResources.has(resource.folder_id)) groupedResources.set(resource.folder_id, [])
+      groupedResources.get(resource.folder_id).push(resource)
+    } else {
+      ungroupedResources.push(resource)
+    }
+  }
 
   if (!chapter) {
     return `
@@ -49,21 +102,14 @@ export async function renderChapter(chapterId) {
       ${resources && resources.length > 0 ? `
         <div class="mt-12">
           <h2 class="text-2xl font-bold text-slate-900 mb-6">Resources</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-            ${resources.map(resource => resource.locked
-              ? renderLockedCard(resource.title, 'Locked — buy the course to unlock')
-              : `
-              <a href="${resource.file_url}" target="_blank" class="card card-interactive">
-                <div class="flex items-center gap-3">
-                  <span class="w-11 h-11 shrink-0 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg font-bold">${getFileIcon(resource.file_type)}</span>
-                  <div class="flex-1 min-w-0">
-                    <h3 class="font-semibold text-slate-900 truncate">${resource.title}</h3>
-                    <p class="text-xs text-slate-400 mt-1">${formatFileType(resource.file_type)}</p>
-                  </div>
-                </div>
-              </a>
-            `).join('')}
-          </div>
+          ${[...groupedResources.entries()].map(([folderId, folderResources]) =>
+            renderFolderGroup(foldersById.get(folderId), folderResources)
+          ).join('')}
+          ${ungroupedResources.length > 0 ? `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+              ${ungroupedResources.map(renderResourceCard).join('')}
+            </div>
+          ` : ''}
         </div>
       ` : ''}
 
@@ -71,7 +117,7 @@ export async function renderChapter(chapterId) {
         <div class="mt-12">
           <h2 class="text-2xl font-bold text-slate-900 mb-6">Tests</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
-            ${tests.map(test => test.locked
+            ${tests.map(test => (COURSE_ACCESS_ENABLED && test.locked)
               ? renderLockedCard(test.title, 'Locked — buy the course to unlock')
               : `
               <a href="/test/${test.id}" class="card card-interactive">

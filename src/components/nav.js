@@ -1,5 +1,6 @@
 import { signOut } from '../lib/supabase.js'
 import { Router } from '../lib/router.js'
+import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
 
 export function renderNav() {
   const loggedIn = !!localStorage.getItem('userId')
@@ -7,6 +8,13 @@ export function renderNav() {
   const authAction = loggedIn
     ? `<button id="logout-btn" class="btn btn-outline text-sm">Logout</button>`
     : `<a href="/login" class="btn btn-primary text-sm">Login</a>`
+
+  const buyCourseLinkDesktop = COURSE_ACCESS_ENABLED
+    ? `<a href="/buy-course" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Buy Course</a>`
+    : ''
+  const buyCourseLinkMobile = COURSE_ACCESS_ENABLED
+    ? `<a href="/buy-course" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Buy Course</a>`
+    : ''
 
   return `
     <nav class="nav-blur sticky top-0 z-40">
@@ -19,7 +27,7 @@ export function renderNav() {
           <!-- Desktop links -->
           <div class="hidden md:flex items-center gap-6">
             <a href="/" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Home</a>
-            <a href="/buy-course" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Buy Course</a>
+            ${buyCourseLinkDesktop}
             <a href="/complaint" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Complaint</a>
             ${authAction}
           </div>
@@ -37,7 +45,7 @@ export function renderNav() {
       <div id="nav-mobile" class="md:hidden hidden border-t border-slate-100 bg-white/95 backdrop-blur">
         <div class="px-4 py-3 flex flex-col gap-1">
           <a href="/" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Home</a>
-          <a href="/buy-course" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Buy Course</a>
+          ${buyCourseLinkMobile}
           <a href="/complaint" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Complaint</a>
           <div class="pt-2">${authAction.replace('id="logout-btn"', 'id="logout-btn-mobile"').replace('class="btn', 'class="w-full btn')}</div>
         </div>

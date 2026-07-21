@@ -12,7 +12,7 @@ import {
   getProfiles,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
-import { showNotification } from '../lib/utils.js'
+import { showNotification, confirmDialog } from '../lib/utils.js'
 
 export async function renderAdminTests() {
   const { data: subjects } = await getSubjects()
@@ -387,14 +387,14 @@ export function initAdminTestsEvents() {
 
             container.querySelectorAll('.delete-question-btn').forEach(dbtn => {
               dbtn.addEventListener('click', async (evt) => {
-                if (confirm('Delete this question?')) {
-                  const { error } = await deleteQuestion(evt.currentTarget.dataset.id)
-                  if (!error) {
-                    showNotification('Question deleted')
-                    location.reload()
-                  } else {
-                    showNotification('Failed to delete question', 'error')
-                  }
+                const ok = await confirmDialog('Delete this question?')
+                if (!ok) return
+                const { error } = await deleteQuestion(evt.currentTarget.dataset.id)
+                if (!error) {
+                  showNotification('Question deleted')
+                  location.reload()
+                } else {
+                  showNotification('Failed to delete question', 'error')
                 }
               })
             })
@@ -403,14 +403,14 @@ export function initAdminTestsEvents() {
 
         testsContainer.querySelectorAll('.delete-test-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
-            if (confirm('Delete this test and all questions?')) {
-              const { error } = await deleteTest(event.currentTarget.dataset.id)
-              if (!error) {
-                showNotification('Test deleted')
-                location.reload()
-              } else {
-                showNotification('Failed to delete test', 'error')
-              }
+            const ok = await confirmDialog('Delete this test and all its questions?')
+            if (!ok) return
+            const { error } = await deleteTest(event.currentTarget.dataset.id)
+            if (!error) {
+              showNotification('Test deleted')
+              location.reload()
+            } else {
+              showNotification('Failed to delete test', 'error')
             }
           })
         })

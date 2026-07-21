@@ -1,5 +1,6 @@
 import { signOut } from '../lib/supabase.js'
 import { Router } from '../lib/router.js'
+import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
 
 const ICON_SVGS = {
   dashboard: '<path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z"/>',
@@ -22,7 +23,9 @@ const ADMIN_LINKS = [
   { path: '/admin/tests', label: 'Tests', icon: icon('tests') },
   { path: '/admin/review', label: 'Review', icon: icon('review') },
   { path: '/admin/complaints', label: 'Complaints', icon: icon('complaints') },
-  { path: '/admin/course-requests', label: 'Course Requests', icon: icon('courseRequests') },
+  ...(COURSE_ACCESS_ENABLED
+    ? [{ path: '/admin/course-requests', label: 'Course Requests', icon: icon('courseRequests') }]
+    : []),
 ]
 
 export function renderAdminShell(activePath, innerHtml) {

@@ -83,6 +83,209 @@ export function closeModal() {
   document.querySelectorAll('.modal').forEach(m => m.remove())
 }
 
+// ---------------------------------------------------------------------------
+// Styled dialogs — in-app replacements for native prompt()/confirm()/alert().
+// Each resolves a Promise instead of blocking the thread, and matches the
+// app's design system instead of the browser's default dialog chrome.
+// ---------------------------------------------------------------------------
+
+function openDialog(innerHtml, { onOpen } = {}) {
+  const overlay = document.createElement('div')
+  overlay.className = 'modal'
+  overlay.innerHTML = `<div class="modal-content">${innerHtml}</div>`
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close()
+  })
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      close()
+      document.removeEventListener('keydown', escHandler)
+    }
+  }
+  document.addEventListener('keydown', escHandler)
+
+  if (onOpen) onOpen(overlay, close)
+  return { overlay, close }
+}
+
+/**
+ * Styled replacement for window.prompt(message, defaultValue).
+ * Resolves the entered string, or null if cancelled/empty.
+ */
+export function promptDialog(title, { placeholder = '', defaultValue = '', confirmLabel = 'OK', inputType = 'text' } = {}) {
+  return new Promise((resolve) => {
+    let resolved = false
+    const finish = (value) => {
+      if (resolved) return
+      resolved = true
+      resolve(value)
+    }
+
+    const { close } = openDialog(`
+      <h2 class="text-xl font-bold text-slate-900 mb-4">${title}</h2>
+      <input type="${inputType}" id="dialog-input" class="input w-full mb-6" placeholder="${placeholder}" value="${defaultValue}">
+      <div class="flex justify-end gap-2">
+        <button type="button" id="dialog-cancel" class="btn btn-outline text-sm">Cancel</button>
+        <button type="button" id="dialog-confirm" class="btn btn-primary text-sm">${confirmLabel}</button>
+      </div>
+    `, {
+      onOpen: (overlay) => {
+        const input = overlay.querySelector('#dialog-input')
+        input.focus()
+        input.select()
+
+        overlay.querySelector('#dialog-cancel').addEventListener('click', () => {
+          finish(null)
+          close()
+        })
+        overlay.querySelector('#dialog-confirm').addEventListener('click', () => {
+          const val = input.value.trim()
+          finish(val || null)
+          close()
+        })
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            const val = input.value.trim()
+            finish(val || null)
+            close()
+          }
+        })
+      },
+    })
+
+    // Resolve null if dismissed via overlay click / Escape without an explicit button.
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(document.querySelector('#dialog-input'))) {
+        finish(null)
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true })
+  })
+}
+
+/**
+ * Styled replacement for window.confirm(message). Resolves true/false.
+ */
+export function confirmDialog(message, { confirmLabel = 'Delete', danger = true } = {}) {
+  return new Promise((resolve) => {
+    let resolved = false
+    const finish = (value) => {
+      if (resolved) return
+      resolved = true
+      resolve(value)
+    }
+
+    const { close } = openDialog(`
+      <h2 class="text-xl font-bold text-slate-900 mb-3">Are you sure?</h2>
+      <p class="text-slate-600 mb-6">${message}</p>
+      <div class="flex justify-end gap-2">
+        <button type="button" id="dialog-cancel" class="btn btn-outline text-sm">Cancel</button>
+        <button type="button" id="dialog-confirm" class="btn ${danger ? 'btn-danger' : 'btn-primary'} text-sm">${confirmLabel}</button>
+      </div>
+    `, {
+      onOpen: (overlay) => {
+        overlay.querySelector('#dialog-cancel').addEventListener('click', () => {
+          finish(false)
+          close()
+        })
+        overlay.querySelector('#dialog-confirm').addEventListener('click', () => {
+          finish(true)
+          close()
+        })
+      },
+    })
+
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(document.querySelector('.modal-content'))) {
+        finish(false)
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true })
+  })
+}
+
+/**
+ * A small styled form dialog for cases prompt() can't handle at all (e.g. a
+ * name field plus a file upload). `fields` is an array of
+ * { name, label, type: 'text'|'file', placeholder?, defaultValue?, accept? }.
+ * Resolves an object keyed by field name (File objects for type: 'file'), or
+ * null if cancelled. Required text fields must be non-empty to submit.
+ */
+export function formDialog(title, fields, { confirmLabel = 'Save' } = {}) {
+  return new Promise((resolve) => {
+    let resolved = false
+    const finish = (value) => {
+      if (resolved) return
+      resolved = true
+      resolve(value)
+    }
+
+    const fieldsHtml = fields.map((f) => `
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}</label>
+        <input
+          type="${f.type === 'file' ? 'file' : (f.type || 'text')}"
+          id="dialog-field-${f.name}"
+          class="input w-full"
+          ${f.placeholder ? `placeholder="${f.placeholder}"` : ''}
+          ${f.defaultValue ? `value="${f.defaultValue}"` : ''}
+          ${f.accept ? `accept="${f.accept}"` : ''}
+        >
+      </div>
+    `).join('')
+
+    const { close } = openDialog(`
+      <h2 class="text-xl font-bold text-slate-900 mb-4">${title}</h2>
+      ${fieldsHtml}
+      <div class="flex justify-end gap-2 mt-2">
+        <button type="button" id="dialog-cancel" class="btn btn-outline text-sm">Cancel</button>
+        <button type="button" id="dialog-confirm" class="btn btn-primary text-sm">${confirmLabel}</button>
+      </div>
+    `, {
+      onOpen: (overlay) => {
+        const firstInput = overlay.querySelector('#dialog-field-' + fields[0]?.name)
+        if (firstInput) firstInput.focus()
+
+        overlay.querySelector('#dialog-cancel').addEventListener('click', () => {
+          finish(null)
+          close()
+        })
+        overlay.querySelector('#dialog-confirm').addEventListener('click', () => {
+          const result = {}
+          for (const f of fields) {
+            const el = overlay.querySelector('#dialog-field-' + f.name)
+            if (f.type === 'file') {
+              result[f.name] = el.files[0] || null
+            } else {
+              result[f.name] = el.value.trim()
+              if (f.required !== false && !result[f.name]) {
+                el.focus()
+                return
+              }
+            }
+          }
+          finish(result)
+          close()
+        })
+      },
+    })
+
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(document.querySelector('.modal-content'))) {
+        finish(null)
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true })
+  })
+}
+
 export function renderErrorBanner(message = 'Something went wrong loading this page. Please try again.') {
   return `
     <div class="max-w-7xl mx-auto px-4 py-6">

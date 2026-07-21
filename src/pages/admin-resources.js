@@ -8,9 +8,15 @@ import {
   uploadFile,
   getSubjects,
   getProfiles,
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  setResourceFolder,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
-import { showNotification } from '../lib/utils.js'
+import { showNotification, formDialog, confirmDialog } from '../lib/utils.js'
+import defaultFolderLogo from '../assets/default-folder-logo.png'
 
 let students = []
 
@@ -75,9 +81,39 @@ export async function renderAdminResources() {
         </form>
       </div>
 
+      <div id="folders-section" class="hidden card mb-8">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-gray-900">Folders</h2>
+          <button id="add-folder-btn" class="btn btn-secondary text-sm">+ Add Folder</button>
+        </div>
+        <div id="folders-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+
       <div id="resources-container" class="space-y-4"></div>
     </div>
   `)
+}
+
+function renderFolderCard(folder) {
+  const logo = folder.logo_url || defaultFolderLogo
+  return `
+    <div class="card flex items-center gap-3" data-folder-card="${folder.id}">
+      <img src="${logo}" alt="" class="w-10 h-10 rounded-lg object-cover shrink-0">
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-gray-900 truncate">${folder.name}</p>
+      </div>
+      <div class="flex gap-1.5 shrink-0">
+        <button class="edit-folder-btn btn btn-outline text-xs" data-id="${folder.id}" data-name="${folder.name}">Edit</button>
+        <button class="delete-folder-btn btn btn-danger text-xs" data-id="${folder.id}">Delete</button>
+      </div>
+    </div>
+  `
+}
+
+function folderOptionsHtml(folders, selectedFolderId = '') {
+  return `<option value="">No folder</option>` + folders.map(f =>
+    `<option value="${f.id}" ${f.id === selectedFolderId ? 'selected' : ''}>${f.name}</option>`
+  ).join('')
 }
 
 function renderUserOptions(students, selectedUserIds = []) {
@@ -126,23 +162,128 @@ export function initAdminResourcesEvents() {
     })
   }
 
+  const foldersSection = document.getElementById('folders-section')
+  const foldersList = document.getElementById('folders-list')
+  const addFolderBtn = document.getElementById('add-folder-btn')
+  let currentChapterId = ''
+  let currentFolders = []
+
+  async function loadFolders(chapterId) {
+    const { data } = await getFolders(chapterId)
+    currentFolders = data || []
+    foldersList.innerHTML = currentFolders.length
+      ? currentFolders.map(renderFolderCard).join('')
+      : '<p class="text-gray-600 text-sm col-span-full">No folders yet. Folders let you group resources (e.g. "Notes", "Videos").</p>'
+    wireFolderButtons()
+  }
+
+  function wireFolderButtons() {
+    foldersList.querySelectorAll('.edit-folder-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id
+        const name = e.currentTarget.dataset.name
+        const result = await formDialog('Edit Folder', [
+          { name: 'name', label: 'Folder name', type: 'text', defaultValue: name },
+          { name: 'logo', label: 'New logo (optional)', type: 'file', accept: 'image/*', required: false },
+        ], { confirmLabel: 'Save' })
+        if (!result) return
+
+        let logoUrl
+        if (result.logo) {
+          const safeName = result.logo.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+          const path = `${Date.now()}-${safeName}`
+          const { error: upErr } = await uploadFile('folder-logos', path, result.logo)
+          if (upErr) {
+            showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
+            return
+          }
+          logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+        }
+
+        const { error } = await updateFolder(id, { name: result.name, logoUrl })
+        if (error) {
+          showNotification('Failed to update folder: ' + (error.message || ''), 'error')
+        } else {
+          showNotification('Folder updated')
+          loadFolders(currentChapterId)
+        }
+      })
+    })
+
+    foldersList.querySelectorAll('.delete-folder-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const ok = await confirmDialog('This deletes the folder. Resources inside it are kept, just unassigned from the folder.')
+        if (!ok) return
+        const { error } = await deleteFolder(e.currentTarget.dataset.id)
+        if (error) {
+          showNotification('Failed to delete folder: ' + (error.message || ''), 'error')
+        } else {
+          showNotification('Folder deleted')
+          loadFolders(currentChapterId)
+          chapterSelect.dispatchEvent(new Event('change'))
+        }
+      })
+    })
+  }
+
+  if (addFolderBtn) {
+    addFolderBtn.addEventListener('click', async () => {
+      if (!currentChapterId) {
+        showNotification('Select a chapter first', 'error')
+        return
+      }
+      const result = await formDialog('Add Folder', [
+        { name: 'name', label: 'Folder name', type: 'text', placeholder: 'e.g., Notes, Videos, Past Papers' },
+        { name: 'logo', label: 'Folder logo (optional)', type: 'file', accept: 'image/*', required: false },
+      ], { confirmLabel: 'Create' })
+      if (!result) return
+
+      let logoUrl = null
+      if (result.logo) {
+        const safeName = result.logo.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `${Date.now()}-${safeName}`
+        const { error: upErr } = await uploadFile('folder-logos', path, result.logo)
+        if (upErr) {
+          showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
+          return
+        }
+        logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+      }
+
+      const { error } = await createFolder(currentChapterId, result.name, logoUrl)
+      if (error) {
+        showNotification('Failed to create folder: ' + (error.message || ''), 'error')
+      } else {
+        showNotification('Folder created')
+        loadFolders(currentChapterId)
+      }
+    })
+  }
+
   if (chapterSelect) {
     chapterSelect.addEventListener('change', async (e) => {
       const chapterId = e.target.value
+      currentChapterId = chapterId
       if (chapterId) {
+        foldersSection.classList.remove('hidden')
+        await loadFolders(chapterId)
+
         const { data: resources } = await getResources(chapterId, { includeAll: true })
         resourcesContainer.innerHTML = `
           <h2 class="text-2xl font-bold text-gray-900 mb-4">Resources in this Chapter</h2>
           <div class="space-y-3">
             ${resources?.map(r => `
               <div class="card">
-                <div class="flex justify-between items-center">
-                  <div>
-                    <p class="font-medium text-gray-900">${r.title}</p>
+                <div class="flex justify-between items-center gap-4">
+                  <div class="min-w-0">
+                    <p class="font-medium text-gray-900 truncate">${r.title}</p>
                     <p class="text-xs text-gray-500">${r.file_type}</p>
                     <p class="text-xs text-gray-500">${r.access_level === 'selected' ? 'Selected users only' : 'Everyone'}</p>
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex items-center gap-2 shrink-0">
+                    <select class="resource-folder-select input text-xs !py-1.5 !w-40" data-id="${r.id}">
+                      ${folderOptionsHtml(currentFolders, r.folder_id || '')}
+                    </select>
                     <button
                       class="manage-resource-access-btn btn btn-outline text-sm"
                       data-id="${r.id}"
@@ -159,6 +300,19 @@ export function initAdminResourcesEvents() {
             `).join('') || '<p class="text-gray-600">No resources yet</p>'}
           </div>
         `
+
+        resourcesContainer.querySelectorAll('.resource-folder-select').forEach(select => {
+          select.addEventListener('change', async (event) => {
+            const resourceId = event.currentTarget.dataset.id
+            const folderId = event.currentTarget.value || null
+            const { error } = await setResourceFolder(resourceId, folderId)
+            if (error) {
+              showNotification('Failed to move resource: ' + (error.message || ''), 'error')
+            } else {
+              showNotification('Resource moved')
+            }
+          })
+        })
 
         resourcesContainer.querySelectorAll('.manage-resource-access-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
@@ -244,17 +398,22 @@ export function initAdminResourcesEvents() {
 
         resourcesContainer.querySelectorAll('.delete-resource-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
-            if (confirm('Delete this resource?')) {
-              const { error } = await deleteResource(event.currentTarget.dataset.id)
-              if (!error) {
-                showNotification('Resource deleted')
-                location.reload()
-              } else {
-                showNotification('Failed to delete resource', 'error')
-              }
+            const ok = await confirmDialog('Delete this resource? This cannot be undone.')
+            if (!ok) return
+            const { error } = await deleteResource(event.currentTarget.dataset.id)
+            if (!error) {
+              showNotification('Resource deleted')
+              location.reload()
+            } else {
+              showNotification('Failed to delete resource', 'error')
             }
           })
         })
+      } else {
+        foldersSection.classList.add('hidden')
+        foldersList.innerHTML = ''
+        resourcesContainer.innerHTML = ''
+        currentFolders = []
       }
     })
   }

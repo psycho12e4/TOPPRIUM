@@ -17,6 +17,7 @@ import { renderAdminComplaints, initAdminComplaintsEvents } from './pages/admin-
 import { renderBuyCourse, initBuyCourseEvents } from './pages/buy-course.js'
 import { renderAdminCourseRequests, initAdminCourseRequestsEvents } from './pages/admin-course-requests.js'
 import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pages/admin-gate.js'
+import { COURSE_ACCESS_ENABLED } from './lib/feature-flags.js'
 
 const ADMIN_GATE_PATH = '/admin-gate'
 
@@ -36,6 +37,19 @@ function markLandingSeen() {
 async function checkAuth(path) {
   const isAdminRoute = path.startsWith('/admin')
   const authRoutes = ['/login', '/signup']
+
+  // Course access (locked previews / buy-course requests) is built but not
+  // yet approved to go live. Redirect its routes away until the flag flips.
+  if (!COURSE_ACCESS_ENABLED) {
+    if (path === '/buy-course') {
+      Router.setPath('/')
+      return false
+    }
+    if (path === '/admin/course-requests') {
+      Router.setPath('/admin')
+      return false
+    }
+  }
 
   let user = null
   try {
