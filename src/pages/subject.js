@@ -1,6 +1,6 @@
-import { getSubject, getChapters, getBooks, getSubjectFolders, getSubFolders } from '../lib/supabase.js'
+import { getSubject, getChapters, getBooks, getSubjectFolders, getSubFolders, getFolderResources } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
-import { renderErrorBanner } from '../lib/utils.js'
+import { renderErrorBanner, getFileIcon, formatFileType } from '../lib/utils.js'
 import defaultFolderLogo from '../assets/default-folder-logo.png'
 
 function renderChapterCard(chapter) {
@@ -9,6 +9,20 @@ function renderChapterCard(chapter) {
       <h3 class="text-lg font-semibold text-slate-900">${chapter.title}</h3>
       <p class="text-sm text-slate-500 mt-2">View resources and tests</p>
       <div class="mt-4 inline-flex items-center gap-1.5 text-brand-600 font-semibold text-sm">Open <span class="card-arrow">→</span></div>
+    </a>
+  `
+}
+
+function renderResourceCard(resource) {
+  return `
+    <a href="${resource.file_url}" target="_blank" class="card card-interactive">
+      <div class="flex items-center gap-3">
+        <span class="w-11 h-11 shrink-0 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg font-bold">${getFileIcon(resource.file_type)}</span>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-semibold text-slate-900 truncate">${resource.title}</h3>
+          <p class="text-xs text-slate-400 mt-1">${formatFileType(resource.file_type)}</p>
+        </div>
+      </div>
     </a>
   `
 }
@@ -30,7 +44,10 @@ function renderBookCard(book) {
 // Recursively renders a folder and its contents (sub-folders, chapters, books).
 async function renderFolderTree(folder, allChapters, allBooks, depth = 0) {
   const logo = folder.logo_url || defaultFolderLogo
-  const { data: subFolders } = await getSubFolders(folder.id)
+  const [{ data: subFolders }, { data: folderResources }] = await Promise.all([
+    getSubFolders(folder.id),
+    getFolderResources(folder.id),
+  ])
 
   const chaptersInFolder = allChapters.filter(ch => ch.folder_id === folder.id)
   const booksInFolder = allBooks.filter(b => b.folder_id === folder.id)
@@ -42,6 +59,7 @@ async function renderFolderTree(folder, allChapters, allBooks, depth = 0) {
   const cards = [
     ...booksInFolder.map(renderBookCard),
     ...chaptersInFolder.map(renderChapterCard),
+    ...(folderResources || []).map(renderResourceCard),
   ]
 
   const isEmpty = !subFolderHtml && cards.length === 0

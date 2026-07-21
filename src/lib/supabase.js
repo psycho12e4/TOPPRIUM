@@ -210,6 +210,19 @@ export async function getResources(chapterId, { includeAll = false } = {}) {
   return { data, error }
 }
 
+// Resources placed directly into a folder (chapter-level or subject-level).
+// Relies on the resources SELECT RLS policy (gated by can_access_resource)
+// for access control, same as getResources.
+export async function getFolderResources(folderId) {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('*')
+    .eq('folder_id', folderId)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
 export async function createResource(chapterId, title, fileUrl, fileType, { accessLevel = 'everyone', userIds = [] } = {}) {
   const { data, error } = await supabase.rpc('admin_create_resource', {
     p_chapter_id: chapterId,

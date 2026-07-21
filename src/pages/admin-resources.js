@@ -9,6 +9,7 @@ import {
   getSubjects,
   getProfiles,
   getFolders,
+  getSubjectFolders,
   createFolder,
   updateFolder,
   deleteFolder,
@@ -97,11 +98,15 @@ export async function renderAdminResources() {
 
 function renderFolderCard(folder) {
   const logo = folder.logo_url || defaultFolderLogo
+  const scopeBadge = folder.subject_id
+    ? '<span class="text-[10px] font-semibold uppercase tracking-wide text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded">Subject folder</span>'
+    : '<span class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Chapter folder</span>'
   return `
     <div class="card flex items-center gap-3" data-folder-card="${folder.id}">
       <img src="${logo}" alt="" class="w-10 h-10 rounded-lg object-cover shrink-0">
       <div class="flex-1 min-w-0">
         <p class="font-medium text-gray-900 truncate">${folder.name}</p>
+        <div class="mt-1">${scopeBadge}</div>
       </div>
       <div class="flex gap-1.5 shrink-0">
         <button class="edit-folder-btn btn btn-outline text-xs" data-id="${folder.id}" data-name="${folder.name}">Edit</button>
@@ -170,8 +175,12 @@ export function initAdminResourcesEvents() {
   let currentFolders = []
 
   async function loadFolders(chapterId) {
-    const { data } = await getFolders(chapterId)
-    currentFolders = data || []
+    const subjectId = document.getElementById('subject-select')?.value
+    const [{ data: chapterFolders }, { data: subjectFolders }] = await Promise.all([
+      getFolders(chapterId),
+      subjectId ? getSubjectFolders(subjectId) : Promise.resolve({ data: [] }),
+    ])
+    currentFolders = [...(chapterFolders || []), ...(subjectFolders || [])]
     foldersList.innerHTML = currentFolders.length
       ? currentFolders.map(renderFolderCard).join('')
       : '<p class="text-gray-600 text-sm col-span-full">No folders yet. Folders let you group resources (e.g. "Notes", "Videos").</p>'
