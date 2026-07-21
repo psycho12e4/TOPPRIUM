@@ -13,6 +13,7 @@ import {
   updateFolder,
   deleteFolder,
   setResourceFolder,
+  getPublicUrl,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, formDialog, confirmDialog } from '../lib/utils.js'
@@ -197,7 +198,7 @@ export function initAdminResourcesEvents() {
             showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
             return
           }
-          logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+          logoUrl = getPublicUrl('folder-logos', path)
         }
 
         const { error } = await updateFolder(id, { name: result.name, logoUrl })
@@ -248,7 +249,7 @@ export function initAdminResourcesEvents() {
           showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
           return
         }
-        logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+        logoUrl = getPublicUrl('folder-logos', path)
       }
 
       const { error } = await createFolder({ chapterId: currentChapterId, name: result.name, logoUrl })
@@ -451,7 +452,7 @@ export function initAdminResourcesEvents() {
         return
       }
 
-      const fileUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/resources/${fileName}`
+      const fileUrl = getPublicUrl('resources', fileName)
       const { error: dbError } = await createResource(chapterId, title, fileUrl, file.type, { accessLevel, userIds })
 
       if (dbError) {

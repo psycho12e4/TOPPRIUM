@@ -17,6 +17,7 @@ import {
   deleteFolder,
   setChapterFolder,
   setBookFolder,
+  getPublicUrl,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, promptDialog, confirmDialog, formDialog } from '../lib/utils.js'
@@ -224,7 +225,7 @@ function wireFolderNode(folder, subjectId) {
           showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
           return
         }
-        logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+        logoUrl = getPublicUrl('folder-logos', path)
       }
 
       const { error } = await updateFolder(folder.id, { name: result.name, logoUrl })
@@ -270,7 +271,7 @@ function wireFolderNode(folder, subjectId) {
           showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
           return
         }
-        logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+        logoUrl = getPublicUrl('folder-logos', path)
       }
 
       const { error } = await createFolder({ parentFolderId: folder.id, name: result.name, logoUrl })
@@ -323,7 +324,7 @@ function wireFolderNode(folder, subjectId) {
         showNotification('Book file upload failed: ' + (fileUploadError.message || ''), 'error')
         return
       }
-      const fileUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/resources/${filePath}`
+      const fileUrl = getPublicUrl('resources', filePath)
 
       let coverUrl = null
       if (result.cover) {
@@ -334,7 +335,7 @@ function wireFolderNode(folder, subjectId) {
           showNotification('Cover upload failed: ' + (coverUploadError.message || ''), 'error')
           return
         }
-        coverUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/book-covers/${coverPath}`
+        coverUrl = getPublicUrl('book-covers', coverPath)
       }
 
       const { data: bookData, error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl)
@@ -508,7 +509,7 @@ export function initAdminSubjectsEvents() {
           showNotification('Logo upload failed: ' + (upErr.message || ''), 'error')
           return
         }
-        logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
+        logoUrl = getPublicUrl('folder-logos', path)
       }
 
       const { error } = await createFolder({ subjectId, name: result.name, logoUrl })
@@ -555,7 +556,7 @@ export function initAdminSubjectsEvents() {
         showNotification('Book file upload failed: ' + (fileUploadError.message || ''), 'error')
         return
       }
-      const fileUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/resources/${filePath}`
+      const fileUrl = getPublicUrl('resources', filePath)
 
       let coverUrl = null
       if (result.cover) {
@@ -566,7 +567,7 @@ export function initAdminSubjectsEvents() {
           showNotification('Cover upload failed: ' + (coverUploadError.message || ''), 'error')
           return
         }
-        coverUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/book-covers/${coverPath}`
+        coverUrl = getPublicUrl('book-covers', coverPath)
       }
 
       const { error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl)

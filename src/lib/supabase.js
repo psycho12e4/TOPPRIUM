@@ -33,6 +33,15 @@ function withTimeout(promise, ms, message) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+// Use this instead of reading import.meta.env.VITE_SUPABASE_URL directly —
+// that env var is often unset at runtime, which previously produced broken
+// "undefined/storage/..." URLs for uploaded files.
+export { SUPABASE_URL }
+
+export function getPublicUrl(bucket, path) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`
+}
+
 export async function signUp(email, password) {
   return supabase.auth.signUp({ email, password })
 }
