@@ -1,7 +1,8 @@
-import { signUp, signIn, supabase } from '../lib/supabase.js'
+import { signUp, signIn, supabase, signInWithGoogleIdToken } from '../lib/supabase.js'
 import { showNotification } from '../lib/utils.js'
 import { Router } from '../lib/router.js'
 import { renderNav } from '../components/nav.js'
+import { initGoogleSignIn } from '../googleAuth.js'
 
 export async function renderLogin() {
   return `
@@ -22,6 +23,7 @@ export async function renderLogin() {
             </div>
             <button type="submit" class="w-full btn btn-primary">Login</button>
           </form>
+          <div id="google-signin-button" class="mt-4"></div>
           <p class="text-center mt-4 text-sm text-gray-600">
             Don't have an account? <a href="/signup" class="text-blue-600 hover:underline">Sign up</a>
           </p>
@@ -115,6 +117,41 @@ export function initAuthEvents() {
         window.location.href = Router.getUrl('/')
       }
     })
+  }
+
+  // Initialize Google Sign-In (GSI) on the login page if configured.
+  if (loginForm) {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (clientId) {
+      try {
+        initGoogleSignIn({
+          clientId,
+          btnContainerId: 'google-signin-button',
+          callback: async (response) => {
+            // response.credential contains the ID token (JWT)
+            try {
+              const res = await signInWithGoogleIdToken(response.credential)
+              const { data, error } = res
+              if (error || !data?.user) {
+                showAuthError(getErrorMessage(error) || 'Google sign-in failed')
+                return
+              }
+              showNotification('Logged in with Google')
+              localStorage.setItem('userId', data.user.id)
+              Router.setPath('/')
+              window.location.href = Router.getUrl('/')
+            } catch (ex) {
+              console.error('Google sign-in error:', ex)
+              showAuthError('Google sign-in failed. Please try again.')
+            }
+          },
+          buttonOptions: { theme: 'outline', size: 'large' },
+        })
+      } catch (e) {
+        // don't block normal login if GSI fails to initialize
+        console.warn('GSI init failed:', e)
+      }
+    }
   }
 
   if (signupForm) {

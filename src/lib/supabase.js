@@ -380,3 +380,37 @@ export async function getProfiles() {
     error: null,
   }
 }
+
+export async function createComplaint(email, message, userId = null) {
+  const { data, error } = await supabase
+    .from('complaints')
+    .insert([{ email, message, user_id: userId }])
+    .select()
+  return { data, error }
+}
+
+export async function getComplaints() {
+  const { data, error } = await supabase
+    .from('complaints')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// status must be one of 'open' | 'resolved'.
+export async function updateComplaintStatus(id, status) {
+  const { data, error } = await supabase
+    .from('complaints')
+    .update({ status })
+    .eq('id', id)
+    .select()
+  return { data, error }
+}
+
+// Sign in using a Google ID token (from Google Identity Services). Returns
+// the supabase auth result. Implementation uses the client method
+// `signInWithIdToken` provided by the Supabase JS SDK.
+export async function signInWithGoogleIdToken(idToken) {
+  if (!idToken) throw new Error('Missing id token')
+  return supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+}

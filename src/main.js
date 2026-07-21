@@ -12,6 +12,11 @@ import { renderAdminSubjects, initAdminSubjectsEvents } from './pages/admin-subj
 import { renderAdminResources, initAdminResourcesEvents } from './pages/admin-resources.js'
 import { renderAdminTests, initAdminTestsEvents } from './pages/admin-tests.js'
 import { renderAdminReview, initAdminReviewEvents } from './pages/admin-review.js'
+import { renderComplaint, initComplaintEvents } from './pages/complaint.js'
+import { renderAdminComplaints, initAdminComplaintsEvents } from './pages/admin-complaints.js'
+import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pages/admin-gate.js'
+
+const ADMIN_GATE_PATH = '/admin-gate'
 
 const app = document.getElementById('app')
 const router = new Router()
@@ -38,6 +43,8 @@ async function checkAuth(path) {
   }
 
   if (path === LANDING_PATH) return true
+  if (path === '/complaint') return true
+  if (path === ADMIN_GATE_PATH) return true
   if (user && authRoutes.includes(path)) return true
 
   if (!user) {
@@ -62,6 +69,11 @@ async function checkAuth(path) {
     } catch (e) {
       console.error('getUserProfile failed:', e)
       Router.setPath('/')
+      return false
+    }
+
+    if (!isAdminGateUnlocked()) {
+      Router.setPath(ADMIN_GATE_PATH)
       return false
     }
   }
@@ -110,6 +122,16 @@ router.on(/^\/test\/.+$/, async (path) => {
   initTestEvents()
 })
 
+router.on('/complaint', async () => {
+  app.innerHTML = await renderComplaint()
+  initComplaintEvents()
+})
+
+router.on(ADMIN_GATE_PATH, async () => {
+  app.innerHTML = await renderAdminGate()
+  initAdminGateEvents()
+})
+
 router.on('/admin', async () => {
   app.innerHTML = await renderAdminDashboard()
   initAdminDashboardEvents()
@@ -133,6 +155,11 @@ router.on('/admin/tests', async () => {
 router.on('/admin/review', async () => {
   app.innerHTML = await renderAdminReview()
   initAdminReviewEvents()
+})
+
+router.on('/admin/complaints', async () => {
+  app.innerHTML = await renderAdminComplaints()
+  initAdminComplaintsEvents()
 })
 
 router.on('*', async () => {
@@ -178,6 +205,8 @@ window.addEventListener('click', (e) => {
       path === '/login' ||
       path === '/signup' ||
       path === LANDING_PATH ||
+      path === '/complaint' ||
+      path === ADMIN_GATE_PATH ||
       path.startsWith('/subject/') ||
       path.startsWith('/chapter/') ||
       path.startsWith('/test/') ||

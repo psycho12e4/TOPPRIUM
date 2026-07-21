@@ -4,7 +4,7 @@ import {
   updateTestStatus,
   updateResourceStatus,
 } from '../lib/supabase.js'
-import { renderNav, initNavEvents } from '../components/nav.js'
+import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, getFileIcon } from '../lib/utils.js'
 
 function chapterLabel(row) {
@@ -74,15 +74,14 @@ export async function renderAdminReview() {
   const pendingResources = resources || []
   const nothing = pendingTests.length === 0 && pendingResources.length === 0
 
-  return `
-    ${renderNav(true)}
+  return renderAdminShell('/admin/review', `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 class="text-4xl font-bold text-gray-900 mb-2">Pending Review</h1>
       <p class="text-gray-600 mb-8">AI-generated content is hidden from students until you approve it.</p>
 
       ${nothing ? `
         <div class="card text-center py-12">
-          <p class="text-gray-600">Nothing awaiting review. 🎉</p>
+          <p class="text-gray-600">Nothing awaiting review.</p>
         </div>
       ` : `
         ${pendingTests.length ? `
@@ -99,7 +98,7 @@ export async function renderAdminReview() {
         ` : ''}
       `}
     </div>
-  `
+  `)
 }
 
 // Wire an approve/reject button: run the status update, remove the card on success.
@@ -122,7 +121,7 @@ function wireStatusButton(selector, cardAttr, updateFn, status, successMsg) {
 }
 
 export function initAdminReviewEvents() {
-  initNavEvents()
+  initAdminShellEvents()
 
   wireStatusButton('.approve-test-btn', 'data-test-card', updateTestStatus, 'published', 'Test approved & published')
   wireStatusButton('.reject-test-btn', 'data-test-card', updateTestStatus, 'rejected', 'Test rejected')

@@ -2,7 +2,7 @@ import { getCurrentUser, signOut } from '../lib/supabase.js'
 import { Router } from '../lib/router.js'
 import { showNotification } from '../lib/utils.js'
 
-export function renderNav(isAdmin = false) {
+export function renderNav() {
   const loggedIn = !!localStorage.getItem('userId')
 
   return `
@@ -14,15 +14,8 @@ export function renderNav(isAdmin = false) {
           </div>
 
           <div class="flex items-center gap-4">
-            ${!isAdmin ? `
-              <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
-            ` : `
-              <a href="/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a>
-              <a href="/admin/subjects" class="text-gray-600 hover:text-gray-900">Subjects</a>
-              <a href="/admin/resources" class="text-gray-600 hover:text-gray-900">Resources</a>
-              <a href="/admin/tests" class="text-gray-600 hover:text-gray-900">Tests</a>
-              <a href="/admin/review" class="text-gray-600 hover:text-gray-900">Review</a>
-            `}
+            <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
+            <a href="/complaint" class="text-gray-600 hover:text-gray-900">Complaint</a>
 
             ${loggedIn ? `
               <button id="logout-btn" class="btn btn-outline text-sm">Logout</button>

@@ -7,14 +7,13 @@ import {
   createChapter,
   deleteChapter,
 } from '../lib/supabase.js'
-import { renderNav, initNavEvents } from '../components/nav.js'
+import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, closeModal, showModal } from '../lib/utils.js'
 
 export async function renderAdminSubjects() {
   const { data: subjects } = await getSubjects()
 
-  return `
-    ${renderNav(true)}
+  return renderAdminShell('/admin/subjects', `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div class="flex justify-between items-center mb-8">
         <h1 class="text-4xl font-bold text-gray-900">Subjects</h1>
@@ -50,11 +49,11 @@ export async function renderAdminSubjects() {
         `).join('') || '<p class="text-gray-600">No subjects yet</p>'}
       </div>
     </div>
-  `
+  `)
 }
 
 export function initAdminSubjectsEvents() {
-  initNavEvents()
+  initAdminShellEvents()
 
   const addSubjectBtn = document.getElementById('add-subject-btn')
   if (addSubjectBtn) {

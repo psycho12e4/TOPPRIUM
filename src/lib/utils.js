@@ -17,14 +17,14 @@ export function formatFileSize(bytes) {
 
 export function getFileIcon(fileType) {
   const icons = {
-    'application/pdf': '📄',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '🎬',
-    'video/mp4': '🎥',
-    'image/jpeg': '🖼️',
-    'image/png': '🖼️',
+    'application/pdf': '[PDF]',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '[DOC]',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '[PPT]',
+    'video/mp4': '[VID]',
+    'image/jpeg': '[IMG]',
+    'image/png': '[IMG]',
   }
-  return icons[fileType] || '📎'
+  return icons[fileType] || '[FILE]'
 }
 
 export function formatFileType(fileType) {

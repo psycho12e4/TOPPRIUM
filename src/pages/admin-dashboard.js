@@ -1,12 +1,11 @@
 import { getSubjects, getStudentCount } from '../lib/supabase.js'
-import { renderNav, initNavEvents } from '../components/nav.js'
+import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 
 export async function renderAdminDashboard() {
   const { data: subjects } = await getSubjects()
   const { count: studentCount } = await getStudentCount()
 
-  return `
-    ${renderNav(true)}
+  return renderAdminShell('/admin', `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 class="text-4xl font-bold text-gray-900 mb-12">Admin Dashboard</h1>
 
@@ -30,12 +29,13 @@ export async function renderAdminDashboard() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <a href="/admin/subjects" class="btn btn-primary">Manage Subjects</a>
           <a href="/admin/resources" class="btn btn-secondary">Upload Resources</a>
+          <a href="/admin/complaints" class="btn btn-secondary">View Complaints</a>
         </div>
       </div>
     </div>
-  `
+  `)
 }
 
 export function initAdminDashboardEvents() {
-  initNavEvents()
+  initAdminShellEvents()
 }

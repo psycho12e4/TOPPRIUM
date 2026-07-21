@@ -22,7 +22,7 @@ export async function renderHome() {
                 <h3 class="text-lg font-semibold text-gray-900">${subject.name}</h3>
                 <p class="text-sm text-gray-600 mt-2">Explore chapters and resources</p>
               </div>
-              <span class="text-2xl">📚</span>
+              <span class="text-2xl text-blue-600">&raquo;</span>
             </div>
             <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Browse →</div>
           </a>

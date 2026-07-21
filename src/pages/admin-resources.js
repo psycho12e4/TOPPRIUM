@@ -9,7 +9,7 @@ import {
   getSubjects,
   getProfiles,
 } from '../lib/supabase.js'
-import { renderNav, initNavEvents } from '../components/nav.js'
+import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification } from '../lib/utils.js'
 
 let students = []
@@ -19,8 +19,7 @@ export async function renderAdminResources() {
   const { data: profiles } = await getProfiles()
   students = profiles?.filter(profile => profile.role !== 'admin') || []
 
-  return `
-    ${renderNav(true)}
+  return renderAdminShell('/admin/resources', `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 class="text-4xl font-bold text-gray-900 mb-8">Upload Resources</h1>
 
@@ -78,7 +77,7 @@ export async function renderAdminResources() {
 
       <div id="resources-container" class="space-y-4"></div>
     </div>
-  `
+  `)
 }
 
 function renderUserOptions(students, selectedUserIds = []) {
@@ -93,7 +92,7 @@ function renderUserOptions(students, selectedUserIds = []) {
 }
 
 export function initAdminResourcesEvents() {
-  initNavEvents()
+  initAdminShellEvents()
 
   const subjectSelect = document.getElementById('subject-select')
   const chapterSelect = document.getElementById('chapter-select')

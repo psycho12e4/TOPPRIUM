@@ -50,7 +50,7 @@ export async function renderChapter(chapterId) {
             ${tests.map(test => `
               <a href="/test/${test.id}" class="card hover:shadow-md transition-shadow cursor-pointer">
                 <h3 class="text-lg font-semibold text-gray-900">${test.title}</h3>
-                <p class="text-sm text-gray-600 mt-2">📋 Take the test</p>
+                <p class="text-sm text-gray-600 mt-2">Take the test</p>
                 <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Start →</div>
               </a>
             `).join('')}
