@@ -1,11 +1,33 @@
-import { getChapter, getResources, getTests } from '../lib/supabase.js'
+import { getChapter, getChapterResourcesPreview, getChapterTestsPreview } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { getFileIcon, formatFileType, renderErrorBanner } from '../lib/utils.js'
 
+const LOCK_ICON = `
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+    <rect x="4" y="10" width="16" height="10" rx="2"/>
+    <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+  </svg>
+`
+
+function renderLockedCard(title, subtitle) {
+  return `
+    <div class="card relative bg-slate-50 border-slate-200">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h3 class="text-lg font-semibold text-slate-500 truncate">${title}</h3>
+          <p class="text-sm text-slate-400 mt-2">${subtitle}</p>
+        </div>
+        <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center">${LOCK_ICON}</span>
+      </div>
+      <a href="/buy-course" class="mt-4 btn btn-primary text-sm inline-flex">Contact to buy course</a>
+    </div>
+  `
+}
+
 export async function renderChapter(chapterId) {
   const { data: chapter, error: chapterError } = await getChapter(chapterId)
-  const { data: resources, error: resourcesError } = await getResources(chapterId)
-  const { data: tests, error: testsError } = await getTests(chapterId)
+  const { data: resources, error: resourcesError } = await getChapterResourcesPreview(chapterId)
+  const { data: tests, error: testsError } = await getChapterTestsPreview(chapterId)
 
   if (!chapter) {
     return `
@@ -28,7 +50,9 @@ export async function renderChapter(chapterId) {
         <div class="mt-12">
           <h2 class="text-2xl font-bold text-slate-900 mb-6">Resources</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-            ${resources.map(resource => `
+            ${resources.map(resource => resource.locked
+              ? renderLockedCard(resource.title, 'Locked — buy the course to unlock')
+              : `
               <a href="${resource.file_url}" target="_blank" class="card card-interactive">
                 <div class="flex items-center gap-3">
                   <span class="w-11 h-11 shrink-0 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg font-bold">${getFileIcon(resource.file_type)}</span>
@@ -47,7 +71,9 @@ export async function renderChapter(chapterId) {
         <div class="mt-12">
           <h2 class="text-2xl font-bold text-slate-900 mb-6">Tests</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
-            ${tests.map(test => `
+            ${tests.map(test => test.locked
+              ? renderLockedCard(test.title, 'Locked — buy the course to unlock')
+              : `
               <a href="/test/${test.id}" class="card card-interactive">
                 <h3 class="text-lg font-semibold text-slate-900">${test.title}</h3>
                 <p class="text-sm text-slate-500 mt-2">Take the test</p>

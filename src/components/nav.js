@@ -19,6 +19,7 @@ export function renderNav() {
           <!-- Desktop links -->
           <div class="hidden md:flex items-center gap-6">
             <a href="/" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Home</a>
+            <a href="/buy-course" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Buy Course</a>
             <a href="/complaint" class="nav-link text-slate-600 hover:text-slate-900 font-medium">Complaint</a>
             ${authAction}
           </div>
@@ -36,6 +37,7 @@ export function renderNav() {
       <div id="nav-mobile" class="md:hidden hidden border-t border-slate-100 bg-white/95 backdrop-blur">
         <div class="px-4 py-3 flex flex-col gap-1">
           <a href="/" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Home</a>
+          <a href="/buy-course" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Buy Course</a>
           <a href="/complaint" class="px-3 py-3 rounded-xl text-slate-700 font-medium hover:bg-brand-50 transition-colors">Complaint</a>
           <div class="pt-2">${authAction.replace('id="logout-btn"', 'id="logout-btn-mobile"').replace('class="btn', 'class="w-full btn')}</div>
         </div>

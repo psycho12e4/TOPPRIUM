@@ -1,0 +1,84 @@
+import { createCourseRequest, getCurrentUser } from '../lib/supabase.js'
+import { renderNav, initNavEvents } from '../components/nav.js'
+import { showNotification } from '../lib/utils.js'
+
+export async function renderBuyCourse() {
+  return `
+    ${renderNav()}
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-extrabold text-slate-900 mb-2">Request Course Access</h1>
+        <p class="text-slate-500">Want a locked course? Share your details and pay at school — we'll unlock your access once payment is collected.</p>
+      </div>
+
+      <form id="buy-course-form" class="card space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="course-name">Full name</label>
+          <input type="text" id="course-name" required class="input w-full" placeholder="e.g., Aarav Sharma" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="course-class">Class</label>
+          <input type="text" id="course-class" required class="input w-full" placeholder="e.g., VIII" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="course-email">Email</label>
+          <input type="email" id="course-email" required class="input w-full" placeholder="you@example.com" />
+        </div>
+        <div id="course-success" class="hidden rounded-lg border border-green-200 bg-green-50 text-green-700 px-4 py-3 text-sm">
+          Thanks! Your request has been received. Please complete the payment at school — we'll unlock your access soon.
+        </div>
+        <div id="course-error" class="hidden rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm"></div>
+        <button type="submit" id="course-submit" class="btn btn-primary w-full">Submit Request</button>
+        <p class="text-center text-xs text-slate-400">Prefer to call? Contact: 83689 83030 (Mon–Sat, 9 AM – 7 PM)</p>
+      </form>
+    </div>
+  `
+}
+
+export function initBuyCourseEvents() {
+  initNavEvents()
+
+  const form = document.getElementById('buy-course-form')
+  if (!form) return
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+
+    const nameInput = document.getElementById('course-name')
+    const classInput = document.getElementById('course-class')
+    const emailInput = document.getElementById('course-email')
+    const submitBtn = document.getElementById('course-submit')
+    const successBox = document.getElementById('course-success')
+    const errorBox = document.getElementById('course-error')
+
+    const name = nameInput.value.trim()
+    const studentClass = classInput.value.trim()
+    const email = emailInput.value.trim()
+
+    errorBox.classList.add('hidden')
+    successBox.classList.add('hidden')
+
+    if (!name || !studentClass || !email) return
+
+    submitBtn.disabled = true
+    submitBtn.textContent = 'Submitting...'
+
+    try {
+      const user = await getCurrentUser()
+      const { error } = await createCourseRequest(name, studentClass, email, user?.id || null)
+
+      if (error) throw error
+
+      form.reset()
+      successBox.classList.remove('hidden')
+      showNotification('Request submitted. We will get in touch to unlock your access!', 'success')
+    } catch (err) {
+      console.error('Failed to submit course request:', err)
+      errorBox.textContent = 'Something went wrong submitting your request. Please try again.'
+      errorBox.classList.remove('hidden')
+    } finally {
+      submitBtn.disabled = false
+      submitBtn.textContent = 'Submit Request'
+    }
+  })
+}

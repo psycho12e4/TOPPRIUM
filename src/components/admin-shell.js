@@ -8,6 +8,7 @@ const ICON_SVGS = {
   tests: '<path d="M9 11l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>',
   review: '<path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   complaints: '<path d="M4 4h16v12H7l-3 3V4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+  courseRequests: '<path d="M6 2l1.5 3h9L18 2M3 6h18l-1.5 9a2 2 0 0 1-2 1.7H6.5a2 2 0 0 1-2-1.7L3 6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>',
 }
 
 function icon(name) {
@@ -21,6 +22,7 @@ const ADMIN_LINKS = [
   { path: '/admin/tests', label: 'Tests', icon: icon('tests') },
   { path: '/admin/review', label: 'Review', icon: icon('review') },
   { path: '/admin/complaints', label: 'Complaints', icon: icon('complaints') },
+  { path: '/admin/course-requests', label: 'Course Requests', icon: icon('courseRequests') },
 ]
 
 export function renderAdminShell(activePath, innerHtml) {

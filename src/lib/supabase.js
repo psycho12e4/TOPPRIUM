@@ -227,6 +227,25 @@ export async function getTest(id) {
   return { data, error }
 }
 
+// Returns title-only metadata for every published test in a chapter, including
+// ones the caller cannot access (marked locked), so the UI can show a locked
+// card instead of hiding the item. Content stays gated server-side.
+export async function getChapterTestsPreview(chapterId) {
+  const { data, error } = await supabase.rpc('list_chapter_tests_preview', {
+    p_chapter_id: chapterId,
+  })
+  return { data, error }
+}
+
+// Same as getChapterTestsPreview but for resources. file_url comes back null
+// for locked rows (the RPC withholds it), so locked cards never link out.
+export async function getChapterResourcesPreview(chapterId) {
+  const { data, error } = await supabase.rpc('list_chapter_resources_preview', {
+    p_chapter_id: chapterId,
+  })
+  return { data, error }
+}
+
 export async function createTest(chapterId, title, { accessLevel = 'everyone', userIds = [] } = {}) {
   const { data, error } = await supabase.rpc('admin_create_test', {
     p_chapter_id: chapterId,
@@ -401,6 +420,32 @@ export async function getComplaints() {
 export async function updateComplaintStatus(id, status) {
   const { data, error } = await supabase
     .from('complaints')
+    .update({ status })
+    .eq('id', id)
+    .select()
+  return { data, error }
+}
+
+export async function createCourseRequest(name, studentClass, email, userId = null) {
+  const { data, error } = await supabase
+    .from('course_requests')
+    .insert([{ name, student_class: studentClass, email, user_id: userId }])
+    .select()
+  return { data, error }
+}
+
+export async function getCourseRequests() {
+  const { data, error } = await supabase
+    .from('course_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// status must be one of 'open' | 'resolved'.
+export async function updateCourseRequestStatus(id, status) {
+  const { data, error } = await supabase
+    .from('course_requests')
     .update({ status })
     .eq('id', id)
     .select()

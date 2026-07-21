@@ -14,6 +14,8 @@ import { renderAdminTests, initAdminTestsEvents } from './pages/admin-tests.js'
 import { renderAdminReview, initAdminReviewEvents } from './pages/admin-review.js'
 import { renderComplaint, initComplaintEvents } from './pages/complaint.js'
 import { renderAdminComplaints, initAdminComplaintsEvents } from './pages/admin-complaints.js'
+import { renderBuyCourse, initBuyCourseEvents } from './pages/buy-course.js'
+import { renderAdminCourseRequests, initAdminCourseRequestsEvents } from './pages/admin-course-requests.js'
 import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pages/admin-gate.js'
 
 const ADMIN_GATE_PATH = '/admin-gate'
@@ -43,7 +45,6 @@ async function checkAuth(path) {
   }
 
   if (path === LANDING_PATH) return true
-  if (path === '/complaint') return true
   if (path === ADMIN_GATE_PATH) return true
   if (user && authRoutes.includes(path)) return true
 
@@ -127,6 +128,11 @@ router.on('/complaint', async () => {
   initComplaintEvents()
 })
 
+router.on('/buy-course', async () => {
+  app.innerHTML = await renderBuyCourse()
+  initBuyCourseEvents()
+})
+
 router.on(ADMIN_GATE_PATH, async () => {
   app.innerHTML = await renderAdminGate()
   initAdminGateEvents()
@@ -160,6 +166,11 @@ router.on('/admin/review', async () => {
 router.on('/admin/complaints', async () => {
   app.innerHTML = await renderAdminComplaints()
   initAdminComplaintsEvents()
+})
+
+router.on('/admin/course-requests', async () => {
+  app.innerHTML = await renderAdminCourseRequests()
+  initAdminCourseRequestsEvents()
 })
 
 router.on('*', async () => {
@@ -221,6 +232,7 @@ window.addEventListener('click', (e) => {
       path === '/signup' ||
       path === LANDING_PATH ||
       path === '/complaint' ||
+      path === '/buy-course' ||
       path === ADMIN_GATE_PATH ||
       path.startsWith('/subject/') ||
       path.startsWith('/chapter/') ||
