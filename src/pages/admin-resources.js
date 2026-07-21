@@ -250,7 +250,7 @@ export function initAdminResourcesEvents() {
         logoUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/folder-logos/${path}`
       }
 
-      const { error } = await createFolder(currentChapterId, result.name, logoUrl)
+      const { error } = await createFolder({ chapterId: currentChapterId, name: result.name, logoUrl })
       if (error) {
         showNotification('Failed to create folder: ' + (error.message || ''), 'error')
       } else {

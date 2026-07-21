@@ -221,6 +221,7 @@ export async function deleteResource(id) {
   return { error }
 }
 
+// Folders scoped to a chapter (groups the chapter's resources).
 export async function getFolders(chapterId) {
   const { data, error } = await supabase
     .from('folders')
@@ -230,10 +231,49 @@ export async function getFolders(chapterId) {
   return { data, error }
 }
 
-export async function createFolder(chapterId, name, logoUrl = null) {
+// Top-level folders scoped to a subject (groups the subject's chapters/books).
+export async function getSubjectFolders(subjectId) {
   const { data, error } = await supabase
     .from('folders')
-    .insert([{ chapter_id: chapterId, name, logo_url: logoUrl }])
+    .select('*')
+    .eq('subject_id', subjectId)
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// Sub-folders nested inside another folder (any scope).
+export async function getSubFolders(parentFolderId) {
+  const { data, error } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('parent_folder_id', parentFolderId)
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// A folder belongs to exactly one of chapterId, subjectId, or parentFolderId.
+export async function createFolder({ chapterId = null, subjectId = null, parentFolderId = null, name, logoUrl = null }) {
+  const { data, error } = await supabase
+    .from('folders')
+    .insert([{ chapter_id: chapterId, subject_id: subjectId, parent_folder_id: parentFolderId, name, logo_url: logoUrl }])
+    .select()
+  return { data, error }
+}
+
+export async function setChapterFolder(chapterId, folderId) {
+  const { data, error } = await supabase
+    .from('chapters')
+    .update({ folder_id: folderId })
+    .eq('id', chapterId)
+    .select()
+  return { data, error }
+}
+
+export async function setBookFolder(bookId, folderId) {
+  const { data, error } = await supabase
+    .from('books')
+    .update({ folder_id: folderId })
+    .eq('id', bookId)
     .select()
   return { data, error }
 }
