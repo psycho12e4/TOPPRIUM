@@ -287,6 +287,15 @@ export async function setBookFolder(bookId, folderId) {
   return { data, error }
 }
 
+export async function setTestFolder(testId, folderId) {
+  const { data, error } = await supabase
+    .from('tests')
+    .update({ folder_id: folderId })
+    .eq('id', testId)
+    .select()
+  return { data, error }
+}
+
 export async function updateFolder(id, { name, logoUrl } = {}) {
   const patch = {}
   if (name !== undefined) patch.name = name

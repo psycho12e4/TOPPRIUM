@@ -43,8 +43,22 @@ function renderResourceCard(resource) {
   `
 }
 
-function renderFolderGroup(folder, folderResources) {
+function renderTestCard(test) {
+  if (COURSE_ACCESS_ENABLED && test.locked) {
+    return renderLockedCard(test.title, 'Locked — buy the course to unlock')
+  }
+  return `
+    <a href="/test/${test.id}" class="card card-interactive">
+      <h3 class="text-lg font-semibold text-slate-900">${test.title}</h3>
+      <p class="text-sm text-slate-500 mt-2">Take the test</p>
+      <div class="mt-4 inline-flex items-center gap-1.5 text-brand-600 font-semibold text-sm">Start <span class="card-arrow">→</span></div>
+    </a>
+  `
+}
+
+function renderFolderGroup(folder, folderResources, folderTests) {
   const logo = folder.logo_url || defaultFolderLogo
+  const cards = [...folderResources.map(renderResourceCard), ...folderTests.map(renderTestCard)]
   return `
     <div class="mb-8">
       <div class="flex items-center gap-2.5 mb-4">
@@ -52,7 +66,7 @@ function renderFolderGroup(folder, folderResources) {
         <h3 class="text-lg font-semibold text-slate-800">${folder.name}</h3>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-        ${folderResources.map(renderResourceCard).join('')}
+        ${cards.join('')}
       </div>
     </div>
   `
@@ -82,6 +96,19 @@ export async function renderChapter(chapterId) {
     }
   }
 
+  const groupedTests = new Map()
+  const ungroupedTests = []
+  for (const test of tests || []) {
+    if (test.folder_id && foldersById.has(test.folder_id)) {
+      if (!groupedTests.has(test.folder_id)) groupedTests.set(test.folder_id, [])
+      groupedTests.get(test.folder_id).push(test)
+    } else {
+      ungroupedTests.push(test)
+    }
+  }
+
+  const allFolderIds = new Set([...groupedResources.keys(), ...groupedTests.keys()])
+
   if (!chapter) {
     return `
       ${renderNav()}
@@ -99,33 +126,28 @@ export async function renderChapter(chapterId) {
       <a href="/" class="link-anim inline-block text-brand-600 font-medium mb-4">← Back to Home</a>
       <h1 class="text-4xl font-extrabold text-slate-900 mb-2">${chapter.title}</h1>
 
-      ${resources && resources.length > 0 ? `
+      ${allFolderIds.size > 0 ? `
         <div class="mt-12">
-          <h2 class="text-2xl font-bold text-slate-900 mb-6">Resources</h2>
-          ${[...groupedResources.entries()].map(([folderId, folderResources]) =>
-            renderFolderGroup(foldersById.get(folderId), folderResources)
+          ${[...allFolderIds].map(folderId =>
+            renderFolderGroup(foldersById.get(folderId), groupedResources.get(folderId) || [], groupedTests.get(folderId) || [])
           ).join('')}
-          ${ungroupedResources.length > 0 ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-              ${ungroupedResources.map(renderResourceCard).join('')}
-            </div>
-          ` : ''}
         </div>
       ` : ''}
 
-      ${tests && tests.length > 0 ? `
+      ${ungroupedResources.length > 0 ? `
+        <div class="mt-12">
+          <h2 class="text-2xl font-bold text-slate-900 mb-6">Resources</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+            ${ungroupedResources.map(renderResourceCard).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${ungroupedTests.length > 0 ? `
         <div class="mt-12">
           <h2 class="text-2xl font-bold text-slate-900 mb-6">Tests</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
-            ${tests.map(test => (COURSE_ACCESS_ENABLED && test.locked)
-              ? renderLockedCard(test.title, 'Locked — buy the course to unlock')
-              : `
-              <a href="/test/${test.id}" class="card card-interactive">
-                <h3 class="text-lg font-semibold text-slate-900">${test.title}</h3>
-                <p class="text-sm text-slate-500 mt-2">Take the test</p>
-                <div class="mt-4 inline-flex items-center gap-1.5 text-brand-600 font-semibold text-sm">Start <span class="card-arrow">→</span></div>
-              </a>
-            `).join('')}
+            ${ungroupedTests.map(renderTestCard).join('')}
           </div>
         </div>
       ` : ''}

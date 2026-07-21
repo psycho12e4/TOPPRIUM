@@ -10,6 +10,8 @@ import {
   deleteQuestion,
   getSubjects,
   getProfiles,
+  getFolders,
+  setTestFolder,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, confirmDialog } from '../lib/utils.js'
@@ -72,6 +74,12 @@ export async function renderAdminTests() {
       <div id="tests-container" class="space-y-6"></div>
     </div>
   `)
+}
+
+function folderOptionsHtml(folders, selectedFolderId = '') {
+  return `<option value="">No folder</option>` + (folders || []).map(f =>
+    `<option value="${f.id}" ${f.id === selectedFolderId ? 'selected' : ''}>${f.name}</option>`
+  ).join('')
 }
 
 function renderUserOptions(students, selectedUserIds = []) {
@@ -248,18 +256,24 @@ export function initAdminTestsEvents() {
     chapterSelect.addEventListener('change', async (e) => {
       const chapterId = e.target.value
       if (chapterId) {
-        const { data: tests } = await getTests(chapterId, { includeAll: true })
+        const [{ data: tests }, { data: folders }] = await Promise.all([
+          getTests(chapterId, { includeAll: true }),
+          getFolders(chapterId),
+        ])
         testsContainer.innerHTML = tests?.length ? `
           <h2 class="text-2xl font-bold text-gray-900 mb-4">Tests</h2>
           <div class="space-y-4">
             ${tests.map(test => `
               <div class="card">
-                <div class="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 class="text-lg font-semibold text-gray-900">${test.title}</h3>
+                <div class="flex justify-between items-center mb-4 gap-3">
+                  <div class="min-w-0">
+                    <h3 class="text-lg font-semibold text-gray-900 truncate">${test.title}</h3>
                     <p class="text-xs text-gray-500">${test.access_level === 'selected' ? 'Selected users only' : 'Everyone'}</p>
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex items-center gap-2 shrink-0">
+                    <select class="test-folder-select input text-xs !py-1.5 !w-40" data-id="${test.id}">
+                      ${folderOptionsHtml(folders, test.folder_id || '')}
+                    </select>
                     <button
                       class="manage-test-access-btn btn btn-outline text-sm"
                       data-id="${test.id}"
@@ -284,6 +298,20 @@ export function initAdminTestsEvents() {
             `).join('')}
           </div>
         ` : '<p class="text-gray-600">No tests in this chapter</p>'
+
+        testsContainer.querySelectorAll('.test-folder-select').forEach(select => {
+          select.addEventListener('change', async (event) => {
+            const target = event.currentTarget
+            const testId = target.dataset.id
+            const folderId = target.value || null
+            const { error } = await setTestFolder(testId, folderId)
+            if (error) {
+              showNotification('Failed to move test: ' + (error.message || ''), 'error')
+            } else {
+              showNotification('Test moved to folder')
+            }
+          })
+        })
 
         testsContainer.querySelectorAll('.manage-test-access-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
