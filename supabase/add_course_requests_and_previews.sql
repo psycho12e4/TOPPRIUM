@@ -96,3 +96,7 @@ as $$
     and r.status = 'published'
   order by r.created_at desc;
 $$;
+
+-- Added later: let students pick which course they want when requesting access.
+alter table course_requests
+  add column if not exists course_name text;

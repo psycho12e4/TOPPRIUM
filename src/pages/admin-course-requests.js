@@ -15,6 +15,7 @@ function renderRequestCard(req) {
           ${isResolved ? 'Resolved' : 'Open'}
         </span>
       </div>
+      <p class="text-gray-700 mb-1"><span class="font-medium">Course:</span> ${req.course_name || '—'}</p>
       <p class="text-gray-700 mb-4"><span class="font-medium">Email:</span> ${req.email}</p>
       <div class="flex gap-2">
         ${!isResolved

@@ -426,10 +426,10 @@ export async function updateComplaintStatus(id, status) {
   return { data, error }
 }
 
-export async function createCourseRequest(name, studentClass, email, userId = null) {
+export async function createCourseRequest(name, studentClass, email, courseName = null, userId = null) {
   const { data, error } = await supabase
     .from('course_requests')
-    .insert([{ name, student_class: studentClass, email, user_id: userId }])
+    .insert([{ name, student_class: studentClass, email, course_name: courseName, user_id: userId }])
     .select()
   return { data, error }
 }
