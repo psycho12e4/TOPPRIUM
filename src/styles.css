@@ -2,66 +2,467 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   TOPPRIUM Design System
+   One source of truth for colour, motion, elevation and shape.
+   Every page inherits polish through .btn / .card / .input / etc.
+   ============================================================ */
+
 :root {
-  --primary: #3b82f6;
-  --secondary: #10b981;
-  --danger: #ef4444;
-  --dark: #1f2937;
-  --light: #f3f4f6;
+  /* Brand palette — indigo/blue with a warm violet lean */
+  --brand-50: #eef4ff;
+  --brand-100: #dce7ff;
+  --brand-200: #bcd0ff;
+  --brand-300: #8fb2ff;
+  --brand-400: #5d8bff;
+  --brand-500: #3b6bf6;
+  --brand-600: #2b52e0;
+  --brand-700: #2440bd;
+  --brand-800: #223a99;
+  --brand-900: #21367a;
+
+  /* Semantic */
+  --primary: var(--brand-600);
+  --primary-hover: var(--brand-700);
+  --secondary: #0d9488;
+  --secondary-hover: #0f766e;
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+
+  /* Neutrals */
+  --ink: #0f172a;
+  --ink-soft: #475569;
+  --ink-faint: #94a3b8;
+  --line: #e6eaf1;
+  --surface: #ffffff;
+  --canvas: #f6f8fc;
+
+  /* Shape + elevation */
+  --radius-sm: 0.5rem;
+  --radius: 0.85rem;
+  --radius-lg: 1.15rem;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 18px -6px rgba(15, 23, 42, 0.16), 0 2px 6px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 22px 45px -18px rgba(37, 82, 224, 0.35);
+  --ring: 0 0 0 3px rgba(59, 107, 246, 0.25);
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 0.22s;
+  --dur-slow: 0.5s;
+
+  /* Gradients */
+  --grad-brand: linear-gradient(135deg, #3b6bf6 0%, #2b52e0 55%, #6d5efc 100%);
+  --grad-brand-hover: linear-gradient(135deg, #4b78f8 0%, #2f57e8 55%, #7a6cff 100%);
 }
 
-html, body {
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  color: var(--ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background-color: var(--light);
+  background-color: var(--canvas);
+  overflow-x: hidden;
 }
 
+::selection {
+  background: rgba(59, 107, 246, 0.18);
+}
+
+/* ---------- Custom scrollbar ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-200) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--brand-300), var(--brand-400));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(var(--brand-400), var(--brand-500));
+  background-clip: padding-box;
+}
+
+/* ============================================================
+   Buttons — lift, sheen sweep, and tactile press on every click
+   ============================================================ */
 .btn {
-  @apply px-4 py-2 rounded-lg font-medium text-white transition-all cursor-pointer;
+  @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white cursor-pointer select-none;
+  border: 1px solid transparent;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
+  will-change: transform;
+}
+
+/* moving sheen */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.35) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.6s var(--ease-out);
+}
+.btn:hover::before {
+  transform: translateX(120%);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: var(--shadow-sm);
+  transition-duration: 0.08s;
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring), var(--shadow-md);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-primary {
-  @apply bg-blue-600 hover:bg-blue-700;
+  background-image: var(--grad-brand);
+  box-shadow: 0 8px 20px -10px rgba(43, 82, 224, 0.7);
+}
+.btn-primary:hover {
+  background-image: var(--grad-brand-hover);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-secondary {
-  @apply bg-green-600 hover:bg-green-700;
+  background-image: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow: 0 8px 20px -10px rgba(13, 148, 136, 0.65);
+}
+.btn-secondary:hover {
+  background-image: linear-gradient(135deg, #22c8b6 0%, #0f766e 100%);
 }
 
 .btn-danger {
-  @apply bg-red-600 hover:bg-red-700;
+  background-image: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  box-shadow: 0 8px 20px -10px rgba(225, 29, 72, 0.6);
+}
+.btn-danger:hover {
+  background-image: linear-gradient(135deg, #fb5170 0%, #be123c 100%);
 }
 
 .btn-outline {
-  @apply border border-gray-300 text-gray-700 hover:bg-gray-100;
+  @apply text-slate-700;
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.btn-outline:hover {
+  border-color: var(--brand-300);
+  color: var(--brand-700);
+  background: var(--brand-50);
+}
+.btn-outline::before {
+  background: linear-gradient(120deg, transparent 20%, rgba(59, 107, 246, 0.12) 50%, transparent 80%);
 }
 
+/* ============================================================
+   Cards — soft rise on hover with a light gradient wash
+   ============================================================ */
 .card {
-  @apply bg-white rounded-lg shadow-sm p-6 border border-gray-100;
+  @apply bg-white rounded-2xl p-6;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
 }
 
+/* Cards that are links/buttons get the interactive lift */
+a.card,
+button.card,
+.card-interactive {
+  cursor: pointer;
+}
+a.card:hover,
+button.card:hover,
+.card-interactive:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-200);
+}
+a.card:active,
+button.card:active,
+.card-interactive:active {
+  transform: translateY(-1px);
+}
+
+/* Arrow nudge on link cards using the "→" affordance */
+a.card .card-arrow,
+a.card [class*='inline-block'] {
+  transition: transform var(--dur) var(--ease);
+}
+a.card:hover .card-arrow {
+  transform: translateX(4px);
+}
+
+/* ============================================================
+   Inputs — smooth focus ring and border glow
+   ============================================================ */
 .input {
-  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply w-full px-4 py-2.5 rounded-xl bg-white;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+.input::placeholder {
+  color: var(--ink-faint);
+}
+.input:hover {
+  border-color: var(--brand-200);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--brand-400);
+  box-shadow: var(--ring);
+  background: #fdfdff;
+}
+select.input {
+  cursor: pointer;
 }
 
+/* ============================================================
+   Links — animated underline sweep
+   ============================================================ */
+.link-anim {
+  position: relative;
+  text-decoration: none;
+}
+.link-anim::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--dur) var(--ease);
+}
+.link-anim:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ============================================================
+   Modal — backdrop blur + pop-in
+   ============================================================ */
 .modal {
-  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+  @apply fixed inset-0 flex items-center justify-center z-50 p-4;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.2s var(--ease) both;
 }
-
 .modal-content {
-  @apply bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4;
+  @apply bg-white rounded-2xl p-8 max-w-md w-full;
+  box-shadow: 0 30px 60px -20px rgba(15, 23, 42, 0.4);
+  animation: pop-in 0.28s var(--ease-out) both;
 }
 
+/* ============================================================
+   Toast notifications (created in utils.js / index.html)
+   ============================================================ */
+.toast {
+  animation: toast-in 0.35s var(--ease-out) both;
+}
+.toast-out {
+  animation: toast-out 0.3s var(--ease) forwards;
+}
+
+/* ============================================================
+   Page transition — every route fades and rises in
+   ============================================================ */
+#app > * {
+  animation: page-enter 0.45s var(--ease-out) both;
+}
+
+/* Stagger children of a grid/list for a gentle cascade */
+.stagger > * {
+  animation: rise-in 0.5s var(--ease-out) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(8) { animation-delay: 0.3s; }
+.stagger > *:nth-child(9) { animation-delay: 0.34s; }
+
+/* ============================================================
+   Keyframes
+   ============================================================ */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(24px) scale(0.96); }
+}
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+/* ============================================================
+   Utility helpers used by pages
+   ============================================================ */
+.hero-gradient {
+  background: var(--grad-brand);
+  position: relative;
+  overflow: hidden;
+}
+.hero-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 30%, rgba(120, 200, 255, 0.22), transparent 40%),
+    radial-gradient(circle at 60% 100%, rgba(140, 100, 255, 0.28), transparent 45%);
+  pointer-events: none;
+}
+.hero-gradient > * {
+  position: relative;
+  z-index: 1;
+}
+
+.gradient-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Nav backdrop blur */
+.nav-blur {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Nav link underline */
+.nav-link {
+  position: relative;
+  transition: color var(--dur) var(--ease);
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--brand-500);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--dur) var(--ease);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* ============================================================
+   Mobile refinements
+   ============================================================ */
 @media (max-width: 768px) {
   .card {
-    @apply p-4;
+    @apply p-4 rounded-xl;
   }
-
   .btn {
-    @apply px-3 py-2 text-sm;
+    @apply px-4 py-2.5 text-sm;
+  }
+  /* Comfortable minimum tap target on mobile */
+  a.btn,
+  button.btn {
+    min-height: 44px;
+  }
+  .input {
+    @apply py-3;
+    font-size: 16px; /* prevents iOS zoom-on-focus */
+  }
+}
+
+/* ============================================================
+   Respect users who prefer reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

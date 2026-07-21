@@ -191,8 +191,23 @@ async function navigate() {
   }
 
   const path = Router.getPath()
+
+  // Smooth cross-fade between routes
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!reduceMotion && app.children.length) {
+    app.style.transition = 'opacity 0.14s ease, transform 0.14s ease'
+    app.style.opacity = '0'
+    app.style.transform = 'translateY(6px)'
+    await new Promise((r) => setTimeout(r, 130))
+  }
+
   await router.navigate(path)
   window.scrollTo(0, 0)
+
+  // Reveal the new page
+  app.style.transition = 'opacity 0.28s ease, transform 0.28s ease'
+  app.style.opacity = '1'
+  app.style.transform = 'translateY(0)'
 }
 
 window.addEventListener('popstate', navigate)

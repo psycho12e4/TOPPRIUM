@@ -6,20 +6,20 @@ import { calculateTestResults, getResultFeedback } from '../lib/test-results.js'
 
 function renderTestContent(test, questions) {
   return `
-    <a href="/" class="text-blue-600 hover:underline mb-4">← Back</a>
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">${test.title}</h1>
-    <p class="text-gray-600 mb-8">${questions?.length || 0} questions</p>
+    <a href="/" class="link-anim inline-block text-brand-600 font-medium mb-4">← Back</a>
+    <h1 class="text-3xl font-extrabold text-slate-900 mb-2">${test.title}</h1>
+    <p class="text-slate-500 mb-8">${questions?.length || 0} questions</p>
 
     <form id="test-form">
-      <div class="space-y-8">
+      <div class="space-y-8 stagger">
         ${questions?.map((question, i) => `
           <div class="card">
-            <h3 class="font-semibold text-gray-900 mb-4">${i + 1}. ${question.question}</h3>
-            <div class="space-y-2">
+            <h3 class="font-semibold text-slate-900 mb-4">${i + 1}. ${question.question}</h3>
+            <div class="space-y-2.5">
               ${['a', 'b', 'c', 'd'].map(option => `
-                <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer">
-                  <input type="radio" name="q${question.id}" value="${option}" class="w-4 h-4 text-blue-600">
-                  <span class="ml-3 text-gray-700">${question['option_' + option]}</span>
+                <label class="group flex items-center p-3.5 border border-slate-200 rounded-xl cursor-pointer transition-all duration-200 hover:border-brand-300 hover:bg-brand-50 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:ring-1 has-[:checked]:ring-brand-400">
+                  <input type="radio" name="q${question.id}" value="${option}" class="w-4 h-4 accent-brand-600">
+                  <span class="ml-3 text-slate-700 group-hover:text-slate-900 transition-colors">${question['option_' + option]}</span>
                 </label>
               `).join('')}
             </div>

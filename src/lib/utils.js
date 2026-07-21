@@ -43,12 +43,29 @@ export function debounce(fn, delay) {
 }
 
 export function showNotification(message, type = 'success') {
+  const styles = {
+    success: { grad: 'linear-gradient(135deg, #14b8a6, #0d9488)', icon: '✓' },
+    error: { grad: 'linear-gradient(135deg, #f43f5e, #e11d48)', icon: '!' },
+    info: { grad: 'linear-gradient(135deg, #3b6bf6, #2b52e0)', icon: 'i' },
+  }
+  const { grad, icon } = styles[type] || styles.success
+
   const div = document.createElement('div')
-  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-  div.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`
-  div.textContent = message
+  div.className =
+    'toast fixed top-4 right-4 text-white pl-4 pr-5 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] sm:max-w-sm'
+  div.style.backgroundImage = grad
+  div.style.boxShadow = '0 12px 30px -10px rgba(15, 23, 42, 0.45)'
+  div.innerHTML = `
+    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-white/25 font-bold text-sm shrink-0">${icon}</span>
+    <span class="text-sm font-medium leading-snug"></span>
+  `
+  div.querySelector('span:last-child').textContent = message
   document.body.appendChild(div)
-  setTimeout(() => div.remove(), 3000)
+
+  setTimeout(() => {
+    div.classList.add('toast-out')
+    div.addEventListener('animationend', () => div.remove(), { once: true })
+  }, 3000)
 }
 
 export function showModal(content) {

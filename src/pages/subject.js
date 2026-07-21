@@ -20,20 +20,20 @@ export async function renderSubject(subjectId) {
     ${renderNav()}
     ${chaptersError ? renderErrorBanner('Could not load chapters. Please refresh the page.') : ''}
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div class="mb-12">
-        <a href="/" class="text-blue-600 hover:underline mb-4">← Back to Subjects</a>
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">${subject.name}</h1>
+      <div class="mb-10">
+        <a href="/" class="link-anim inline-block text-brand-600 font-medium mb-4">← Back to Subjects</a>
+        <h1 class="text-4xl font-extrabold text-slate-900 mb-2">${subject.name}</h1>
       </div>
 
-      <h2 class="text-2xl font-bold text-gray-900 mb-6">Chapters</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6">Chapters</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
         ${chapters?.map(chapter => `
-          <a href="/chapter/${chapter.id}" class="card hover:shadow-md transition-shadow cursor-pointer">
-            <h3 class="text-lg font-semibold text-gray-900">${chapter.title}</h3>
-            <p class="text-sm text-gray-600 mt-2">View resources and tests</p>
-            <div class="mt-4 inline-block text-blue-600 font-medium text-sm">Open →</div>
+          <a href="/chapter/${chapter.id}" class="card card-interactive">
+            <h3 class="text-lg font-semibold text-slate-900">${chapter.title}</h3>
+            <p class="text-sm text-slate-500 mt-2">View resources and tests</p>
+            <div class="mt-4 inline-flex items-center gap-1.5 text-brand-600 font-semibold text-sm">Open <span class="card-arrow">→</span></div>
           </a>
-        `).join('') || (chaptersError ? '' : '<p class="col-span-2 text-gray-600">No chapters available</p>')}
+        `).join('') || (chaptersError ? '' : '<p class="col-span-2 text-slate-500">No chapters available</p>')}
       </div>
     </div>
   `

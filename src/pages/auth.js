@@ -7,10 +7,11 @@ import { initGoogleSignIn } from '../googleAuth.js'
 export async function renderLogin() {
   return `
     ${renderNav()}
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-brand-50/40 to-transparent">
       <div class="w-full max-w-md">
-        <div class="card">
-          <h2 class="text-3xl font-bold text-center mb-8">Login</h2>
+        <div class="card !p-8">
+          <h2 class="text-3xl font-extrabold text-center mb-2">Welcome back</h2>
+          <p class="text-center text-slate-500 text-sm mb-8">Log in to continue learning</p>
           <form id="login-form">
             <p id="auth-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"></p>
             <div class="mb-4">
@@ -36,10 +37,11 @@ export async function renderLogin() {
 export async function renderSignup() {
   return `
     ${renderNav()}
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-brand-50/40 to-transparent">
       <div class="w-full max-w-md">
-        <div class="card">
-          <h2 class="text-3xl font-bold text-center mb-8">Sign Up</h2>
+        <div class="card !p-8">
+          <h2 class="text-3xl font-extrabold text-center mb-2">Create your account</h2>
+          <p class="text-center text-slate-500 text-sm mb-8">Free to join, start in under a minute</p>
           <form id="signup-form">
             <p id="auth-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"></p>
             <div class="mb-4">
