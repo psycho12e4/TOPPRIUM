@@ -387,9 +387,10 @@ export function initAdminTestsEvents() {
 
             container.querySelectorAll('.delete-question-btn').forEach(dbtn => {
               dbtn.addEventListener('click', async (evt) => {
+                const id = evt.currentTarget.dataset.id
                 const ok = await confirmDialog('Delete this question?')
                 if (!ok) return
-                const { error } = await deleteQuestion(evt.currentTarget.dataset.id)
+                const { error } = await deleteQuestion(id)
                 if (!error) {
                   showNotification('Question deleted')
                   location.reload()
@@ -403,9 +404,10 @@ export function initAdminTestsEvents() {
 
         testsContainer.querySelectorAll('.delete-test-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
+            const id = event.currentTarget.dataset.id
             const ok = await confirmDialog('Delete this test and all its questions?')
             if (!ok) return
-            const { error } = await deleteTest(event.currentTarget.dataset.id)
+            const { error } = await deleteTest(id)
             if (!error) {
               showNotification('Test deleted')
               location.reload()

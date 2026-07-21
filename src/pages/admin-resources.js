@@ -212,9 +212,10 @@ export function initAdminResourcesEvents() {
 
     foldersList.querySelectorAll('.delete-folder-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id
         const ok = await confirmDialog('This deletes the folder. Resources inside it are kept, just unassigned from the folder.')
         if (!ok) return
-        const { error } = await deleteFolder(e.currentTarget.dataset.id)
+        const { error } = await deleteFolder(id)
         if (error) {
           showNotification('Failed to delete folder: ' + (error.message || ''), 'error')
         } else {
@@ -398,9 +399,10 @@ export function initAdminResourcesEvents() {
 
         resourcesContainer.querySelectorAll('.delete-resource-btn').forEach(btn => {
           btn.addEventListener('click', async (event) => {
+            const id = event.currentTarget.dataset.id
             const ok = await confirmDialog('Delete this resource? This cannot be undone.')
             if (!ok) return
-            const { error } = await deleteResource(event.currentTarget.dataset.id)
+            const { error } = await deleteResource(id)
             if (!error) {
               showNotification('Resource deleted')
               location.reload()

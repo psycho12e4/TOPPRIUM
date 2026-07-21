@@ -70,12 +70,13 @@ function wireButton(btn) {
   const successMsg = status === 'resolved' ? 'Complaint marked resolved' : 'Complaint reopened'
 
   btn.addEventListener('click', async (e) => {
-    const id = e.currentTarget.dataset.id
-    e.currentTarget.disabled = true
+    const target = e.currentTarget
+    const id = target.dataset.id
+    target.disabled = true
     const { error } = await updateComplaintStatus(id, status)
     if (error) {
       showNotification('Failed: ' + (error.message || 'unknown error'), 'error')
-      e.currentTarget.disabled = false
+      target.disabled = false
       return
     }
     showNotification(successMsg)

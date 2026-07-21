@@ -173,9 +173,10 @@ async function loadFolderContents(folder, subjectId) {
 function wireFolderRowButtons(scope) {
   scope.querySelectorAll('.delete-chapter-btn').forEach(dbtn => {
     dbtn.addEventListener('click', async (event) => {
+      const id = event.currentTarget.dataset.id
       const ok = await confirmDialog('This deletes the chapter and all its resources.')
       if (!ok) return
-      const { error } = await deleteChapter(event.currentTarget.dataset.id)
+      const { error } = await deleteChapter(id)
       if (!error) {
         showNotification('Chapter deleted')
         location.reload()
@@ -187,9 +188,10 @@ function wireFolderRowButtons(scope) {
 
   scope.querySelectorAll('.delete-book-btn').forEach(dbtn => {
     dbtn.addEventListener('click', async (event) => {
+      const id = event.currentTarget.dataset.id
       const ok = await confirmDialog('Delete this book?')
       if (!ok) return
-      const { error } = await deleteBook(event.currentTarget.dataset.id)
+      const { error } = await deleteBook(id)
       if (!error) {
         showNotification('Book deleted')
         location.reload()
@@ -395,9 +397,10 @@ export function initAdminSubjectsEvents() {
 
   document.querySelectorAll('.delete-subject-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id
       const ok = await confirmDialog('This deletes the subject and all its chapters, books and resources.')
       if (!ok) return
-      const { error } = await deleteSubject(e.currentTarget.dataset.id)
+      const { error } = await deleteSubject(id)
       if (!error) {
         showNotification('Subject deleted')
         location.reload()
@@ -427,9 +430,10 @@ export function initAdminSubjectsEvents() {
 
         listContainer.querySelectorAll('.delete-chapter-btn').forEach(dbtn => {
           dbtn.addEventListener('click', async (event) => {
+            const id = event.currentTarget.dataset.id
             const ok = await confirmDialog('This deletes the chapter and all its resources.')
             if (!ok) return
-            const { error } = await deleteChapter(event.currentTarget.dataset.id)
+            const { error } = await deleteChapter(id)
             if (!error) {
               showNotification('Chapter deleted')
               location.reload()
@@ -585,9 +589,10 @@ async function loadBooks(subjectId, listContainer) {
 
   listContainer.querySelectorAll('.delete-book-btn').forEach(dbtn => {
     dbtn.addEventListener('click', async (event) => {
+      const id = event.currentTarget.dataset.id
       const ok = await confirmDialog('Delete this book?')
       if (!ok) return
-      const { error } = await deleteBook(event.currentTarget.dataset.id)
+      const { error } = await deleteBook(id)
       if (!error) {
         showNotification('Book deleted')
         loadBooks(subjectId, listContainer)

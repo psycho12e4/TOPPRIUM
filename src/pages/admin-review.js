@@ -105,12 +105,13 @@ export async function renderAdminReview() {
 function wireStatusButton(selector, cardAttr, updateFn, status, successMsg) {
   document.querySelectorAll(selector).forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const id = e.currentTarget.dataset.id
-      e.currentTarget.disabled = true
+      const target = e.currentTarget
+      const id = target.dataset.id
+      target.disabled = true
       const { error } = await updateFn(id, status)
       if (error) {
         showNotification('Failed: ' + (error.message || 'unknown error'), 'error')
-        e.currentTarget.disabled = false
+        target.disabled = false
         return
       }
       showNotification(successMsg)
