@@ -85,7 +85,13 @@ export async function renderAdminSubjects() {
   `)
 }
 
-function renderBookCard(book) {
+function folderOptionsHtml(folders, selectedFolderId = '') {
+  return `<option value="">No folder</option>` + (folders || []).map(f =>
+    `<option value="${f.id}" ${f.id === selectedFolderId ? 'selected' : ''}>${f.name}</option>`
+  ).join('')
+}
+
+function renderBookCard(book, folders = null) {
   return `
     <div class="card flex items-center gap-3 p-4">
       ${book.cover_url
@@ -95,6 +101,11 @@ function renderBookCard(book) {
         <span class="font-medium text-gray-900 truncate block">${book.name}</span>
         <a href="${book.file_url}" target="_blank" class="text-xs text-brand-600 hover:underline">View file</a>
       </div>
+      ${folders ? `
+        <select class="book-folder-select input text-xs !py-1.5 !w-40 shrink-0" data-id="${book.id}">
+          ${folderOptionsHtml(folders)}
+        </select>
+      ` : ''}
       <button class="delete-book-btn btn btn-danger text-xs shrink-0" data-id="${book.id}">
         Delete
       </button>
@@ -418,16 +429,39 @@ export function initAdminSubjectsEvents() {
       const listContainer = document.getElementById(`chapters-list-${subjectId}`)
 
       if (container.classList.contains('hidden')) {
-        const { data: allChapters } = await getChapters(subjectId)
+        const [{ data: allChapters }, { data: allFolders }] = await Promise.all([
+          getChapters(subjectId),
+          getSubjectFolders(subjectId),
+        ])
         const chapters = allChapters?.filter(ch => !ch.folder_id)
-        listContainer.innerHTML = chapters?.map(ch => `
-          <div class="card flex justify-between items-center p-4">
-            <span class="font-medium text-gray-900">${ch.title}</span>
-            <button class="delete-chapter-btn btn btn-danger text-xs" data-id="${ch.id}">
-              Delete
-            </button>
+        listContainer.innerHTML = chapters?.length ? chapters.map(ch => `
+          <div class="card flex justify-between items-center p-4 gap-3">
+            <span class="font-medium text-gray-900 truncate">${ch.title}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <select class="chapter-folder-select input text-xs !py-1.5 !w-40" data-id="${ch.id}">
+                ${folderOptionsHtml(allFolders)}
+              </select>
+              <button class="delete-chapter-btn btn btn-danger text-xs" data-id="${ch.id}">
+                Delete
+              </button>
+            </div>
           </div>
-        `).join('') || '<p class="text-gray-600">No ungrouped chapters (chapters inside folders show under Folders)</p>'
+        `).join('') : '<p class="text-gray-600">No ungrouped chapters (chapters inside folders show under Folders)</p>'
+
+        listContainer.querySelectorAll('.chapter-folder-select').forEach(select => {
+          select.addEventListener('change', async (event) => {
+            const target = event.currentTarget
+            const chapterId = target.dataset.id
+            const folderId = target.value || null
+            const { error } = await setChapterFolder(chapterId, folderId)
+            if (error) {
+              showNotification('Failed to move chapter: ' + (error.message || ''), 'error')
+            } else {
+              showNotification('Chapter moved to folder')
+              location.reload()
+            }
+          })
+        })
 
         listContainer.querySelectorAll('.delete-chapter-btn').forEach(dbtn => {
           dbtn.addEventListener('click', async (event) => {
@@ -582,11 +616,29 @@ export function initAdminSubjectsEvents() {
 }
 
 async function loadBooks(subjectId, listContainer) {
-  const { data: allBooks } = await getBooks(subjectId)
+  const [{ data: allBooks }, { data: allFolders }] = await Promise.all([
+    getBooks(subjectId),
+    getSubjectFolders(subjectId),
+  ])
   const books = allBooks?.filter(b => !b.folder_id)
   listContainer.innerHTML = books?.length
-    ? books.map(renderBookCard).join('')
+    ? books.map(b => renderBookCard(b, allFolders)).join('')
     : '<p class="text-gray-600">No ungrouped books (books inside folders show under Folders)</p>'
+
+  listContainer.querySelectorAll('.book-folder-select').forEach(select => {
+    select.addEventListener('change', async (event) => {
+      const target = event.currentTarget
+      const bookId = target.dataset.id
+      const folderId = target.value || null
+      const { error } = await setBookFolder(bookId, folderId)
+      if (error) {
+        showNotification('Failed to move book: ' + (error.message || ''), 'error')
+      } else {
+        showNotification('Book moved to folder')
+        loadBooks(subjectId, listContainer)
+      }
+    })
+  })
 
   listContainer.querySelectorAll('.delete-book-btn').forEach(dbtn => {
     dbtn.addEventListener('click', async (event) => {
