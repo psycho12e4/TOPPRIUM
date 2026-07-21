@@ -1,6 +1,5 @@
-import { getCurrentUser, signOut } from '../lib/supabase.js'
+import { signOut } from '../lib/supabase.js'
 import { Router } from '../lib/router.js'
-import { showNotification } from '../lib/utils.js'
 
 export function renderNav() {
   const loggedIn = !!localStorage.getItem('userId')

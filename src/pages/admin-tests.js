@@ -162,7 +162,7 @@ function parseQuestionsFromText(text) {
       return
     }
 
-    const optionMatch = line.match(/^([a-d])\s*[\).:-]\s*(.+)$/i)
+    const optionMatch = line.match(/^([a-d])\s*[).:-]\s*(.+)$/i)
     if (optionMatch) {
       const field = `option${optionMatch[1].toUpperCase()}`
       appendToField(field, optionMatch[2])
@@ -297,6 +297,9 @@ export function initAdminTestsEvents() {
               showNotification('Failed to load access list: ' + (error.message || ''), 'error')
               return
             }
+
+            const { data: profiles } = await getProfiles()
+            const students = profiles?.filter(profile => profile.role !== 'admin') || []
 
             const selectedUserIds = allowedUsers?.map(row => row.user_id) || []
             let editor = card.querySelector('.test-access-editor')
