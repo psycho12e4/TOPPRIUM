@@ -213,9 +213,11 @@ export function confirmDialog(message, { confirmLabel = 'Delete', danger = true 
 /**
  * A small styled form dialog for cases prompt() can't handle at all (e.g. a
  * name field plus a file upload). `fields` is an array of
- * { name, label, type: 'text'|'file', placeholder?, defaultValue?, accept? }.
- * Resolves an object keyed by field name (File objects for type: 'file'), or
- * null if cancelled. Required text fields must be non-empty to submit.
+ * { name, label, type: 'text'|'file'|'select', placeholder?, defaultValue?, accept?,
+ *   options?, multiple? }. `options` is an array of { value, label } used when
+ * type is 'select'. Resolves an object keyed by field name (File objects for
+ * type: 'file', an array of selected values for a multiple select), or null
+ * if cancelled. Required text fields must be non-empty to submit.
  */
 export function formDialog(title, fields, { confirmLabel = 'Save' } = {}) {
   return new Promise((resolve) => {
@@ -226,7 +228,21 @@ export function formDialog(title, fields, { confirmLabel = 'Save' } = {}) {
       resolve(value)
     }
 
-    const fieldsHtml = fields.map((f) => `
+    const fieldsHtml = fields.map((f) => {
+      if (f.type === 'select') {
+        const optionsHtml = (f.options || []).map(o =>
+          `<option value="${o.value}" ${!f.multiple && o.value === f.defaultValue ? 'selected' : ''}>${o.label}</option>`
+        ).join('')
+        return `
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}</label>
+            <select id="dialog-field-${f.name}" class="input w-full" ${f.multiple ? 'multiple' : ''}>
+              ${optionsHtml}
+            </select>
+          </div>
+        `
+      }
+      return `
       <div class="mb-4">
         <label class="block text-sm font-medium text-slate-700 mb-1">${f.label}</label>
         <input
@@ -238,7 +254,8 @@ export function formDialog(title, fields, { confirmLabel = 'Save' } = {}) {
           ${f.accept ? `accept="${f.accept}"` : ''}
         >
       </div>
-    `).join('')
+    `
+    }).join('')
 
     const { close } = openDialog(`
       <h2 class="text-xl font-bold text-slate-900 mb-4">${title}</h2>
@@ -262,6 +279,8 @@ export function formDialog(title, fields, { confirmLabel = 'Save' } = {}) {
             const el = overlay.querySelector('#dialog-field-' + f.name)
             if (f.type === 'file') {
               result[f.name] = el.files[0] || null
+            } else if (f.type === 'select' && f.multiple) {
+              result[f.name] = [...el.selectedOptions].map(o => o.value)
             } else {
               result[f.name] = el.value.trim()
               if (f.required !== false && !result[f.name]) {

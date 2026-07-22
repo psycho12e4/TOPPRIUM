@@ -26,10 +26,6 @@ const router = new Router()
 const LANDING_PATH = '/landing'
 const LANDING_SEEN_KEY = 'toppriumLandingSeen'
 
-function hasSeenLanding() {
-  return localStorage.getItem(LANDING_SEEN_KEY) === 'true'
-}
-
 function markLandingSeen() {
   localStorage.setItem(LANDING_SEEN_KEY, 'true')
 }
@@ -65,12 +61,7 @@ async function checkAuth(path) {
   if (!user) {
     if (path === LANDING_PATH || authRoutes.includes(path)) return true
 
-    if (path === '/') {
-      Router.setPath(LANDING_PATH)
-      return false
-    }
-
-    Router.setPath('/login')
+    Router.setPath(LANDING_PATH)
     return false
   }
 

@@ -104,11 +104,34 @@ export async function getBooks(subjectId) {
   return { data, error }
 }
 
-export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = null) {
+export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = null, { accessLevel = 'everyone', userIds = [], folderId = null } = {}) {
+  const { data, error } = await supabase.rpc('admin_create_book', {
+    p_subject_id: subjectId,
+    p_name: name,
+    p_file_url: fileUrl,
+    p_file_type: fileType,
+    p_cover_url: coverUrl,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+    p_folder_id: folderId,
+  })
+  return { data, error }
+}
+
+export async function getBookAllowedUsers(bookId) {
   const { data, error } = await supabase
-    .from('books')
-    .insert([{ subject_id: subjectId, name, file_url: fileUrl, file_type: fileType, cover_url: coverUrl }])
-    .select()
+    .from('book_allowed_users')
+    .select('user_id')
+    .eq('book_id', bookId)
+  return { data, error }
+}
+
+export async function updateBookAccess(id, accessLevel, userIds = []) {
+  const { data, error } = await supabase.rpc('admin_update_book_access', {
+    p_book_id: id,
+    p_access_level: accessLevel,
+    p_user_ids: userIds,
+  })
   return { data, error }
 }
 
@@ -397,6 +420,15 @@ export async function getChapterTestsPreview(chapterId) {
 export async function getChapterResourcesPreview(chapterId) {
   const { data, error } = await supabase.rpc('list_chapter_resources_preview', {
     p_chapter_id: chapterId,
+  })
+  return { data, error }
+}
+
+// Same idea but for books. file_url comes back null for locked rows (the RPC
+// withholds it); name/cover_url stay visible so the card still renders.
+export async function getBooksPreview(subjectId) {
+  const { data, error } = await supabase.rpc('get_books_preview', {
+    p_subject_id: subjectId,
   })
   return { data, error }
 }

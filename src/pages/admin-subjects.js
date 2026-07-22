@@ -9,6 +9,8 @@ import {
   getBooks,
   createBook,
   deleteBook,
+  getBookAllowedUsers,
+  updateBookAccess,
   uploadFile,
   getSubjectFolders,
   getSubFolders,
@@ -18,13 +20,29 @@ import {
   setChapterFolder,
   setBookFolder,
   getPublicUrl,
+  getProfiles,
 } from '../lib/supabase.js'
 import { renderAdminShell, initAdminShellEvents } from '../components/admin-shell.js'
 import { showNotification, promptDialog, confirmDialog, formDialog } from '../lib/utils.js'
 import defaultFolderLogo from '../assets/default-folder-logo.png'
 
+let students = []
+
+function renderUserOptions(students, selectedUserIds = []) {
+  if (!students.length) {
+    return '<option value="" disabled>No student users found</option>'
+  }
+
+  const selected = new Set(selectedUserIds)
+  return students.map(user => `
+    <option value="${user.id}" ${selected.has(user.id) ? 'selected' : ''}>${user.email || user.id}</option>
+  `).join('')
+}
+
 export async function renderAdminSubjects() {
   const { data: subjects } = await getSubjects()
+  const { data: profiles } = await getProfiles()
+  students = profiles?.filter(profile => profile.role !== 'admin') || []
 
   return renderAdminShell('/admin/subjects', `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -106,6 +124,13 @@ function renderBookCard(book, folders = null) {
           ${folderOptionsHtml(folders)}
         </select>
       ` : ''}
+      <button
+        class="manage-book-access-btn btn btn-outline text-xs shrink-0"
+        data-id="${book.id}"
+        data-access-level="${book.access_level || 'everyone'}"
+      >
+        Manage Access
+      </button>
       <button class="delete-book-btn btn btn-danger text-xs shrink-0" data-id="${book.id}">
         Delete
       </button>
@@ -323,8 +348,18 @@ function wireFolderNode(folder, subjectId) {
         { name: 'name', label: 'Book name', type: 'text', placeholder: 'e.g., NCERT Mathematics' },
         { name: 'file', label: 'Book file (PDF)', type: 'file', accept: '.pdf,.docx,.pptx' },
         { name: 'cover', label: 'Cover image (optional)', type: 'file', accept: 'image/*', required: false },
+        { name: 'accessLevel', label: 'Who can access this?', type: 'select', options: [
+          { value: 'everyone', label: 'Everyone' },
+          { value: 'selected', label: 'Selected users only' },
+        ], defaultValue: 'everyone' },
+        { name: 'userIds', label: 'Selected users', type: 'select', multiple: true, options: students.map(u => ({ value: u.id, label: u.email || u.id })), required: false },
       ], { confirmLabel: 'Add Book' })
       if (!result) return
+
+      if (result.accessLevel === 'selected' && (!result.userIds || result.userIds.length === 0)) {
+        showNotification('Please select at least one user', 'error')
+        return
+      }
 
       showNotification('Uploading...', 'info')
 
@@ -349,18 +384,17 @@ function wireFolderNode(folder, subjectId) {
         coverUrl = getPublicUrl('book-covers', coverPath)
       }
 
-      const { data: bookData, error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl)
-      const newBook = bookData?.[0]
+      const { data: bookData, error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl, {
+        accessLevel: result.accessLevel,
+        userIds: result.userIds || [],
+        folderId: folder.id,
+      })
+      const newBook = Array.isArray(bookData) ? bookData[0] : bookData
       if (error || !newBook) {
         showNotification('Failed to add book: ' + (error?.message || ''), 'error')
         return
       }
-      const { error: assignError } = await setBookFolder(newBook.id, folder.id)
-      if (assignError) {
-        showNotification('Book added, but failed to place it in the folder', 'error')
-      } else {
-        showNotification('Book added')
-      }
+      showNotification('Book added')
       location.reload()
     })
   }
@@ -578,8 +612,18 @@ export function initAdminSubjectsEvents() {
         { name: 'name', label: 'Book name', type: 'text', placeholder: 'e.g., NCERT Mathematics' },
         { name: 'file', label: 'Book file (PDF)', type: 'file', accept: '.pdf,.docx,.pptx' },
         { name: 'cover', label: 'Cover image (optional)', type: 'file', accept: 'image/*', required: false },
+        { name: 'accessLevel', label: 'Who can access this?', type: 'select', options: [
+          { value: 'everyone', label: 'Everyone' },
+          { value: 'selected', label: 'Selected users only' },
+        ], defaultValue: 'everyone' },
+        { name: 'userIds', label: 'Selected users', type: 'select', multiple: true, options: students.map(u => ({ value: u.id, label: u.email || u.id })), required: false },
       ], { confirmLabel: 'Add Book' })
       if (!result) return
+
+      if (result.accessLevel === 'selected' && (!result.userIds || result.userIds.length === 0)) {
+        showNotification('Please select at least one user', 'error')
+        return
+      }
 
       showNotification('Uploading...', 'info')
 
@@ -604,7 +648,10 @@ export function initAdminSubjectsEvents() {
         coverUrl = getPublicUrl('book-covers', coverPath)
       }
 
-      const { error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl)
+      const { error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl, {
+        accessLevel: result.accessLevel,
+        userIds: result.userIds || [],
+      })
       if (error) {
         showNotification('Failed to add book: ' + (error.message || ''), 'error')
       } else {
@@ -652,6 +699,80 @@ async function loadBooks(subjectId, listContainer) {
       } else {
         showNotification('Failed to delete book', 'error')
       }
+    })
+  })
+
+  listContainer.querySelectorAll('.manage-book-access-btn').forEach(btn => {
+    btn.addEventListener('click', async (event) => {
+      const button = event.currentTarget
+      const bookId = button.dataset.id
+      const currentAccessLevel = button.dataset.accessLevel
+      const card = button.closest('.card')
+      const { data: allowedUsers, error } = await getBookAllowedUsers(bookId)
+
+      if (error) {
+        showNotification('Failed to load access list: ' + (error.message || ''), 'error')
+        return
+      }
+
+      const selectedUserIds = allowedUsers?.map(row => row.user_id) || []
+      let editor = card.querySelector('.book-access-editor')
+
+      if (editor) {
+        editor.remove()
+        return
+      }
+
+      editor = document.createElement('div')
+      editor.className = 'book-access-editor mt-4 pt-4 border-t border-gray-200 w-full'
+      editor.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Who can access this?</label>
+            <select class="book-edit-access-level input">
+              <option value="everyone" ${currentAccessLevel !== 'selected' ? 'selected' : ''}>Everyone</option>
+              <option value="selected" ${currentAccessLevel === 'selected' ? 'selected' : ''}>Selected users only</option>
+            </select>
+          </div>
+          <div class="book-edit-user-picker ${currentAccessLevel === 'selected' ? '' : 'hidden'}">
+            <label class="block text-sm font-medium mb-2">Selected users</label>
+            <select class="book-edit-user-ids input min-h-32" multiple>
+              ${renderUserOptions(students, selectedUserIds)}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select more than one user.</p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button class="save-book-access-btn btn btn-primary text-sm">Save Access</button>
+          <button class="cancel-book-access-btn btn btn-outline text-sm">Cancel</button>
+        </div>
+      `
+      card.appendChild(editor)
+
+      const editAccessLevel = editor.querySelector('.book-edit-access-level')
+      const editUserPicker = editor.querySelector('.book-edit-user-picker')
+      editAccessLevel.addEventListener('change', (changeEvent) => {
+        editUserPicker.classList.toggle('hidden', changeEvent.target.value !== 'selected')
+      })
+
+      editor.querySelector('.cancel-book-access-btn').addEventListener('click', () => editor.remove())
+      editor.querySelector('.save-book-access-btn').addEventListener('click', async () => {
+        const accessLevel = editAccessLevel.value
+        const userIds = [...editor.querySelector('.book-edit-user-ids').selectedOptions].map(option => option.value)
+
+        if (accessLevel === 'selected' && userIds.length === 0) {
+          showNotification('Please select at least one user', 'error')
+          return
+        }
+
+        const { error: saveError } = await updateBookAccess(bookId, accessLevel, userIds)
+        if (saveError) {
+          showNotification('Failed to update access: ' + (saveError.message || ''), 'error')
+        } else {
+          showNotification('Access updated')
+          loadBooks(subjectId, listContainer)
+        }
+      })
     })
   })
 }

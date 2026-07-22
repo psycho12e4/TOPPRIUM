@@ -1,7 +1,15 @@
-import { getSubject, getChapters, getBooks, getSubjectFolders, getSubFolders, getFolderResources } from '../lib/supabase.js'
+import { getSubject, getChapters, getBooksPreview, getSubjectFolders, getSubFolders, getFolderResources } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { renderErrorBanner, getFileIcon, formatFileType } from '../lib/utils.js'
+import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
 import defaultFolderLogo from '../assets/default-folder-logo.png'
+
+const LOCK_ICON = `
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+    <rect x="4" y="10" width="16" height="10" rx="2"/>
+    <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+  </svg>
+`
 
 function renderChapterCard(chapter) {
   return `
@@ -28,6 +36,21 @@ function renderResourceCard(resource) {
 }
 
 function renderBookCard(book) {
+  if (COURSE_ACCESS_ENABLED && book.locked) {
+    return `
+      <div class="card relative bg-slate-50 border-slate-200 flex items-center gap-3">
+        ${book.cover_url
+          ? `<img src="${book.cover_url}" alt="" class="w-12 h-16 rounded object-cover shrink-0 opacity-60">`
+          : `<span class="w-12 h-16 rounded bg-slate-200 text-slate-500 flex items-center justify-center text-2xl shrink-0">📖</span>`}
+        <div class="min-w-0 flex-1">
+          <h3 class="font-semibold text-slate-500 truncate">${book.name}</h3>
+          <p class="text-sm text-slate-400 mt-1">Locked — buy the course to unlock</p>
+          <a href="/buy-course" class="mt-2 btn btn-primary text-sm inline-flex">Contact to buy course</a>
+        </div>
+        <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center">${LOCK_ICON}</span>
+      </div>
+    `
+  }
   return `
     <a href="${book.file_url}" target="_blank" class="card card-interactive flex items-center gap-3">
       ${book.cover_url
@@ -84,8 +107,13 @@ async function renderFolderTree(folder, allChapters, allBooks, depth = 0) {
 export async function renderSubject(subjectId) {
   const { data: subject, error: subjectError } = await getSubject(subjectId)
   const { data: chapters, error: chaptersError } = await getChapters(subjectId)
-  const { data: books } = await getBooks(subjectId)
+  const { data: rawBooks } = await getBooksPreview(subjectId)
   const { data: folders } = await getSubjectFolders(subjectId)
+
+  // Locked-preview cards are a course-access feature still behind a flag —
+  // until it's enabled, keep the old behavior of simply not showing books
+  // the student can't access.
+  const books = COURSE_ACCESS_ENABLED ? rawBooks : rawBooks?.filter(b => !b.locked)
 
   if (!subject) {
     return `
