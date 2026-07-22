@@ -19,6 +19,7 @@ import { renderAdminCourseRequests, initAdminCourseRequestsEvents } from './page
 import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pages/admin-gate.js'
 import { COURSE_ACCESS_ENABLED } from './lib/feature-flags.js'
 import { showNotification } from './lib/utils.js'
+import { renderCopilotWidget, initCopilotWidget } from './components/copilot-widget.js'
 
 const ADMIN_GATE_PATH = '/admin-gate'
 
@@ -202,10 +203,54 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 })
 
+// --- Copilot widget mounting -----------------------------------------------
+// The floating copilot lives in its own container appended to <body>, outside
+// #app, so route re-renders never wipe it. We (re)mount it after navigation on
+// pages where a logged-in user should have it, and tear it down elsewhere
+// (landing, login, signup, admin gate).
+const COPILOT_HIDDEN_PATHS = new Set([LANDING_PATH, '/login', '/signup', ADMIN_GATE_PATH])
+let copilotMountedRole = null
+
+async function syncCopilot(path, user) {
+  const container = (() => {
+    let el = document.getElementById('copilot-root')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'copilot-root'
+      document.body.appendChild(el)
+    }
+    return el
+  })()
+
+  const shouldShow = user && !COPILOT_HIDDEN_PATHS.has(path)
+  if (!shouldShow) {
+    container.innerHTML = ''
+    copilotMountedRole = null
+    return
+  }
+
+  let role = 'student'
+  try {
+    const { data: profile } = await getUserProfile(user.id)
+    if (profile?.role === 'admin') role = 'admin'
+  } catch (e) {
+    console.error('Copilot role lookup failed:', e)
+  }
+
+  // Only re-render when the role changed (or it was torn down) so an open chat
+  // survives in-app navigation between pages of the same role.
+  if (copilotMountedRole !== role) {
+    container.innerHTML = renderCopilotWidget(role)
+    initCopilotWidget(role)
+    copilotMountedRole = role
+  }
+}
+
 async function navigate() {
   // Keep localStorage in sync with the actual session
+  let user = null
   try {
-    const user = await getCurrentUser()
+    user = await getCurrentUser()
     if (user) {
       localStorage.setItem('userId', user.id)
     } else {
@@ -228,6 +273,10 @@ async function navigate() {
 
   await router.navigate(path)
   window.scrollTo(0, 0)
+
+  // Mount/refresh the floating copilot for the resolved route. Uses the final
+  // path (after any auth redirect) so it never shows on the landing/auth pages.
+  syncCopilot(Router.getPath(), user).catch((e) => console.error('Copilot mount failed:', e))
 
   // Reveal the new page
   app.style.transition = 'opacity 0.28s ease, transform 0.28s ease'
