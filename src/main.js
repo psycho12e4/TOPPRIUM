@@ -18,6 +18,7 @@ import { renderBuyCourse, initBuyCourseEvents } from './pages/buy-course.js'
 import { renderAdminCourseRequests, initAdminCourseRequestsEvents } from './pages/admin-course-requests.js'
 import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pages/admin-gate.js'
 import { COURSE_ACCESS_ENABLED } from './lib/feature-flags.js'
+import { showNotification } from './lib/utils.js'
 
 const ADMIN_GATE_PATH = '/admin-gate'
 
@@ -61,6 +62,13 @@ async function checkAuth(path) {
   if (!user) {
     if (path === LANDING_PATH || authRoutes.includes(path)) return true
 
+    // If we were headed to a protected route and got here (e.g. right after
+    // unlocking the admin gate) but there's no valid session, the login
+    // itself has expired/gone stale — say so instead of silently bouncing.
+    if (isAdminRoute || path === ADMIN_GATE_PATH) {
+      showNotification('Your session has expired. Please log in again.', 'error')
+    }
+
     Router.setPath(LANDING_PATH)
     return false
   }
@@ -74,6 +82,7 @@ async function checkAuth(path) {
       }
     } catch (e) {
       console.error('getUserProfile failed:', e)
+      showNotification('Could not verify admin access. Please try again.', 'error')
       Router.setPath('/')
       return false
     }

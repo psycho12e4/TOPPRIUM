@@ -1,8 +1,8 @@
 import { Router } from '../lib/router.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
+import { supabase } from '../lib/supabase.js'
 
 export const ADMIN_GATE_KEY = 'adminGateUnlocked'
-export const ADMIN_GATE_PASSWORD = 'ToppriumToppers'
 
 export function isAdminGateUnlocked() {
   return sessionStorage.getItem(ADMIN_GATE_KEY) === 'true'
@@ -36,12 +36,19 @@ export function initAdminGateEvents() {
   const form = document.getElementById('admin-gate-form')
   if (!form) return
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const input = document.getElementById('admin-gate-password')
     const errorEl = document.getElementById('admin-gate-error')
+    const submitBtn = form.querySelector('button[type="submit"]')
 
-    if (input.value === ADMIN_GATE_PASSWORD) {
+    submitBtn.disabled = true
+    const { data: isCorrect, error } = await supabase.rpc('check_admin_gate_password', {
+      p_password: input.value,
+    })
+    submitBtn.disabled = false
+
+    if (!error && isCorrect) {
       sessionStorage.setItem(ADMIN_GATE_KEY, 'true')
       Router.setPath('/admin')
       window.location.href = Router.getUrl('/admin')
