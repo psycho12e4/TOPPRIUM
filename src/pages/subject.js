@@ -47,8 +47,8 @@ function renderBookCard(book) {
             <h3 class="font-semibold text-slate-500 truncate">${book.name}</h3>
             ${COURSE_ACCESS_BETA_LABEL ? '<span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Beta</span>' : ''}
           </div>
-          <p class="text-sm text-slate-400 mt-1">Locked — buy the course to unlock</p>
-          <a href="/buy-course" class="mt-2 btn btn-primary text-sm inline-flex">Contact to buy course</a>
+          <p class="text-sm text-slate-400 mt-1">Locked — buy the book to unlock</p>
+          <a href="/buy-course" class="mt-2 btn btn-primary text-sm inline-flex">Contact to buy book</a>
         </div>
         <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center">${LOCK_ICON}</span>
       </div>
