@@ -33,8 +33,15 @@ function renderUserOptions(students, selectedUserIds = []) {
     return '<option value="" disabled>No student users found</option>'
   }
 
+  // Purely informational placeholder — not a real selectable value. Shows
+  // up whenever nobody is currently picked, so it's obvious at a glance that
+  // this is locked to nobody rather than looking like an empty/broken list.
+  const noneRow = selectedUserIds.length === 0
+    ? '<option value="" disabled>None selected — locked to everyone</option>'
+    : ''
+
   const selected = new Set(selectedUserIds)
-  return students.map(user => `
+  return noneRow + students.map(user => `
     <option value="${user.id}" ${selected.has(user.id) ? 'selected' : ''}>${user.email || user.id}</option>
   `).join('')
 }
