@@ -1,7 +1,10 @@
 # TOPPRIUM Copilot
 
-An AI assistant built on the **DeepSeek** API. It has two faces, decided by the
-signed-in user's role:
+An AI assistant built on any **OpenAI-compatible** chat API — currently running
+on **Groq** (`llama-3.3-70b-versatile`, free tier). The provider is chosen
+entirely by three Supabase secrets (`AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL`),
+so switching to DeepSeek, Google Gemini, OpenRouter, etc. needs no code change.
+It has two faces, decided by the signed-in user's role:
 
 - **Students** get a study tutor (explains concepts, works through problems,
   quizzes them) that also answers "how do I use the site" questions. It stays
@@ -49,16 +52,34 @@ still gets a `403` unless the account is genuinely an admin.
 You need the [Supabase CLI](https://supabase.com/docs/guides/cli) and to be
 linked to the project (`supabase link --project-ref bzrxgolyrmgpxlzwxnzz`).
 
-1. **Set the secrets** (the key lives here, not in the repo):
+1. **Set the secrets** (the key lives here, not in the repo). Provider-neutral
+   names `AI_*` are preferred; legacy `DEEPSEEK_*` names still work as a
+   fallback. For the current Groq setup:
 
    ```bash
    supabase secrets set \
-     DEEPSEEK_API_KEY=your_deepseek_key \
-     DEEPSEEK_MODEL=deepseek-chat
+     AI_API_KEY=your_groq_key \
+     AI_BASE_URL=https://api.groq.com/openai/v1 \
+     AI_MODEL=llama-3.3-70b-versatile
    ```
 
    `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by the
    platform — you don't set those.
+
+   ⚠️ **Trailing-newline gotcha:** if you set secrets in the **dashboard**
+   (not the CLI), paste carefully — the input often appends a trailing `\n`.
+   A newline in `AI_MODEL`/`AI_BASE_URL` breaks every request (Groq responds
+   `model ... does not exist`). The function now `.trim()`s all three values
+   defensively, but avoid the stray newline anyway.
+
+   Other providers, same three secrets:
+
+   | Provider | `AI_BASE_URL` | `AI_MODEL` |
+   |----------|---------------|------------|
+   | Groq (current) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+   | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.0-flash` |
+   | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+   | OpenRouter | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3.1:free` |
 
 2. **Deploy the function:**
 
