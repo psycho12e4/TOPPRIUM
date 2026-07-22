@@ -29,10 +29,20 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Provider-neutral env, falling back to the original DEEPSEEK_* names so
 // existing deployments keep working whichever secret names are set.
-const AI_BASE_URL =
-  Deno.env.get('AI_BASE_URL') || Deno.env.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
-const AI_MODEL = Deno.env.get('AI_MODEL') || Deno.env.get('DEEPSEEK_MODEL') || 'deepseek-chat'
-const AI_API_KEY = Deno.env.get('AI_API_KEY') || Deno.env.get('DEEPSEEK_API_KEY') || ''
+// .trim() guards against trailing newlines/spaces that dashboard secret
+// inputs commonly append when values are pasted — an untrimmed "\n" in the
+// model name or base URL silently breaks every request.
+const env = (...names: string[]) => {
+  for (const n of names) {
+    const v = Deno.env.get(n)
+    if (v) return v.trim()
+  }
+  return ''
+}
+
+const AI_BASE_URL = env('AI_BASE_URL', 'DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
+const AI_MODEL = env('AI_MODEL', 'DEEPSEEK_MODEL') || 'deepseek-chat'
+const AI_API_KEY = env('AI_API_KEY', 'DEEPSEEK_API_KEY')
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
