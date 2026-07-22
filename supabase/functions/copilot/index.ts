@@ -1,9 +1,9 @@
 // TOPPRIUM Copilot — Supabase Edge Function (Deno)
 //
-// A thin, auth-gated proxy in front of the DeepSeek chat API. The DeepSeek key
-// is a Supabase secret (DEEPSEEK_API_KEY) and NEVER reaches the browser — the
-// client only ever talks to this function, authenticated with the caller's
-// Supabase session JWT.
+// A thin, auth-gated proxy in front of an OpenAI-compatible chat API (DeepSeek,
+// Google Gemini, Groq, OpenRouter, …). The API key is a Supabase secret and
+// NEVER reaches the browser — the client only ever talks to this function,
+// authenticated with the caller's Supabase session JWT.
 //
 // Responsibilities:
 //   1. Verify the caller has a valid Supabase session (rejects anonymous).
@@ -13,16 +13,26 @@
 //   5. Stream the model's reply back to the client as Server-Sent Events.
 //
 // Deploy:  supabase functions deploy copilot
-// Secrets: supabase secrets set DEEPSEEK_API_KEY=... DEEPSEEK_MODEL=deepseek-chat
+// Secrets (provider-neutral names, with legacy DEEPSEEK_* fallbacks):
+//   AI_API_KEY   — the provider API key            (required)
+//   AI_BASE_URL  — OpenAI-compatible base URL       (default DeepSeek)
+//   AI_MODEL     — model id                         (default deepseek-chat)
 //
-// The DeepSeek API is OpenAI-compatible, so we speak the /chat/completions
-// wire format directly with fetch (no SDK needed inside Deno).
+//   Google Gemini free tier, for example:
+//     AI_BASE_URL = https://generativelanguage.googleapis.com/v1beta/openai
+//     AI_MODEL    = gemini-2.0-flash
+//
+// Any OpenAI-compatible provider works with zero code changes — only these
+// three secrets differ.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const DEEPSEEK_BASE_URL = Deno.env.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
-const DEEPSEEK_MODEL = Deno.env.get('DEEPSEEK_MODEL') || 'deepseek-chat'
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY') || ''
+// Provider-neutral env, falling back to the original DEEPSEEK_* names so
+// existing deployments keep working whichever secret names are set.
+const AI_BASE_URL =
+  Deno.env.get('AI_BASE_URL') || Deno.env.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
+const AI_MODEL = Deno.env.get('AI_MODEL') || Deno.env.get('DEEPSEEK_MODEL') || 'deepseek-chat'
+const AI_API_KEY = Deno.env.get('AI_API_KEY') || Deno.env.get('DEEPSEEK_API_KEY') || ''
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -150,8 +160,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Method not allowed' }, 405)
   }
 
-  if (!DEEPSEEK_API_KEY) {
-    return json({ error: 'Copilot is not configured. Missing DEEPSEEK_API_KEY.' }, 500)
+  if (!AI_API_KEY) {
+    return json({ error: 'Copilot is not configured. Missing AI_API_KEY.' }, 500)
   }
 
   // --- Authenticate the caller via their Supabase session JWT -------------
@@ -211,17 +221,17 @@ Deno.serve(async (req: Request) => {
 
   const systemPrompt = pickSystemPrompt(role, mode)
 
-  // --- Call DeepSeek (OpenAI-compatible), streaming -----------------------
+  // --- Call the AI provider (OpenAI-compatible), streaming ----------------
   let upstream: Response
   try {
-    upstream = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+    upstream = await fetch(`${AI_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${AI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: AI_MODEL,
         stream: true,
         max_tokens: MAX_TOKENS,
         temperature: mode === 'quiz' ? 0.4 : 0.7,
@@ -234,7 +244,7 @@ Deno.serve(async (req: Request) => {
 
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => '')
-    console.error('DeepSeek error', upstream.status, detail)
+    console.error('AI provider error', upstream.status, detail)
     const msg =
       upstream.status === 401
         ? 'Copilot is misconfigured (bad API key).'
@@ -242,7 +252,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: msg }, 502)
   }
 
-  // Re-emit the DeepSeek SSE stream to the client. We pass the raw
+  // Re-emit the provider's SSE stream to the client. We pass the raw
   // `data: {...}` lines through unchanged; the client parses the delta chunks.
   return new Response(upstream.body, {
     headers: {
