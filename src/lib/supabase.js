@@ -56,6 +56,16 @@ export async function signOut() {
 
 export async function getCurrentUser() {
   try {
+    // getSession() forces the client to finish restoring its persisted
+    // session from storage before we ask for the user — without this,
+    // getUser() (and any query that follows it, e.g. a profile lookup) can
+    // race a freshly-constructed client whose session isn't attached yet,
+    // making auth.uid() resolve to null inside RLS-guarded queries.
+    await withTimeout(
+      supabase.auth.getSession(),
+      3000,
+      'Supabase auth is not responding'
+    )
     const { data: { user } } = await withTimeout(
       supabase.auth.getUser(),
       3000,
@@ -104,7 +114,7 @@ export async function getBooks(subjectId) {
   return { data, error }
 }
 
-export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = null, { accessLevel = 'everyone', userIds = [], folderId = null } = {}) {
+export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = null, { accessLevel = 'everyone', userIds = [], folderId = null, scheduledAt = null } = {}) {
   const { data, error } = await supabase.rpc('admin_create_book', {
     p_subject_id: subjectId,
     p_name: name,
@@ -114,6 +124,7 @@ export async function createBook(subjectId, name, fileUrl, fileType, coverUrl = 
     p_access_level: accessLevel,
     p_user_ids: userIds,
     p_folder_id: folderId,
+    p_scheduled_at: scheduledAt,
   })
   return { data, error }
 }
@@ -246,7 +257,7 @@ export async function getFolderResources(folderId) {
   return { data, error }
 }
 
-export async function createResource(chapterId, title, fileUrl, fileType, { accessLevel = 'everyone', userIds = [] } = {}) {
+export async function createResource(chapterId, title, fileUrl, fileType, { accessLevel = 'everyone', userIds = [], scheduledAt = null } = {}) {
   const { data, error } = await supabase.rpc('admin_create_resource', {
     p_chapter_id: chapterId,
     p_title: title,
@@ -254,6 +265,7 @@ export async function createResource(chapterId, title, fileUrl, fileType, { acce
     p_file_type: fileType,
     p_access_level: accessLevel,
     p_user_ids: userIds,
+    p_scheduled_at: scheduledAt,
   })
   return { data, error }
 }
@@ -433,12 +445,25 @@ export async function getBooksPreview(subjectId) {
   return { data, error }
 }
 
-export async function createTest(chapterId, title, { accessLevel = 'everyone', userIds = [] } = {}) {
+// Scheduled-publish announcements for the current student: titles (not
+// content) of anything scheduled but not yet live ("will be uploaded at"),
+// plus anything that went live since sinceIso ("new X uploaded"). Access is
+// already gated server-side — a student never learns about something they
+// wouldn't be allowed to see once it's live.
+export async function getScheduleAnnouncements(sinceIso) {
+  const { data, error } = await supabase.rpc('get_schedule_announcements', {
+    p_since: sinceIso,
+  })
+  return { data, error }
+}
+
+export async function createTest(chapterId, title, { accessLevel = 'everyone', userIds = [], scheduledAt = null } = {}) {
   const { data, error } = await supabase.rpc('admin_create_test', {
     p_chapter_id: chapterId,
     p_title: title,
     p_access_level: accessLevel,
     p_user_ids: userIds,
+    p_scheduled_at: scheduledAt,
   })
   return { data, error }
 }

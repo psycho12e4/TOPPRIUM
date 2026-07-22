@@ -67,6 +67,17 @@ export async function renderAdminTests() {
             </div>
           </div>
 
+          <div class="mt-4">
+            <label class="flex items-center gap-2 text-sm font-medium mb-2">
+              <input type="checkbox" id="test-schedule-toggle" class="w-4 h-4">
+              Schedule for later instead of publishing now
+            </label>
+            <div id="test-schedule-picker" class="hidden">
+              <input type="datetime-local" id="test-schedule-at" class="input">
+              <p class="text-xs text-gray-500 mt-1">The test is created now, but stays hidden from students until this date/time.</p>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-primary mt-4">Create Test</button>
         </form>
       </div>
@@ -235,6 +246,14 @@ export function initAdminTestsEvents() {
   if (accessLevelSelect && userPicker) {
     accessLevelSelect.addEventListener('change', (e) => {
       userPicker.classList.toggle('hidden', e.target.value !== 'selected')
+    })
+  }
+
+  const scheduleToggle = document.getElementById('test-schedule-toggle')
+  const schedulePicker = document.getElementById('test-schedule-picker')
+  if (scheduleToggle && schedulePicker) {
+    scheduleToggle.addEventListener('change', (e) => {
+      schedulePicker.classList.toggle('hidden', !e.target.checked)
     })
   }
 
@@ -530,15 +549,23 @@ export function initAdminTestsEvents() {
       const title = document.getElementById('test-title').value
       const accessLevel = document.getElementById('test-access-level').value
       const userIds = [...document.getElementById('test-user-ids').selectedOptions].map(option => option.value)
+      const scheduleEnabled = document.getElementById('test-schedule-toggle')?.checked
+      const scheduleValue = document.getElementById('test-schedule-at')?.value
+      const scheduledAt = scheduleEnabled && scheduleValue ? new Date(scheduleValue).toISOString() : null
 
       if (!chapterId || !title) {
         showNotification('Please select a chapter and enter a title', 'error')
         return
       }
 
-      const { error } = await createTest(chapterId, title, { accessLevel, userIds })
+      if (scheduleEnabled && !scheduleValue) {
+        showNotification('Pick a date and time to schedule for', 'error')
+        return
+      }
+
+      const { error } = await createTest(chapterId, title, { accessLevel, userIds, scheduledAt })
       if (!error) {
-        showNotification('Test created')
+        showNotification(scheduledAt ? 'Test created — will go live at the scheduled time' : 'Test created')
         location.reload()
       } else {
         showNotification('Failed to create test: ' + (error.message || ''), 'error')

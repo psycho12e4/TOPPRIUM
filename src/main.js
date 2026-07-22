@@ -20,6 +20,7 @@ import { renderAdminGate, initAdminGateEvents, isAdminGateUnlocked } from './pag
 import { COURSE_ACCESS_ENABLED } from './lib/feature-flags.js'
 import { showNotification } from './lib/utils.js'
 import { renderCopilotWidget, initCopilotWidget } from './components/copilot-widget.js'
+import { checkScheduleAnnouncements } from './lib/schedule-announcements.js'
 
 const ADMIN_GATE_PATH = '/admin-gate'
 
@@ -76,8 +77,9 @@ async function checkAuth(path) {
 
   if (isAdminRoute) {
     try {
-      const { data: profile } = await getUserProfile(user.id)
+      const { data: profile, error: profileError } = await getUserProfile(user.id)
       if (!profile || profile.role !== 'admin') {
+        if (profileError) console.error('getUserProfile error:', profileError)
         Router.setPath('/')
         return false
       }
@@ -211,6 +213,10 @@ supabase.auth.onAuthStateChange((event, session) => {
 const COPILOT_HIDDEN_PATHS = new Set([LANDING_PATH, '/login', '/signup', ADMIN_GATE_PATH])
 let copilotMountedRole = null
 
+// Scheduled-upload announcements (see lib/schedule-announcements.js) only
+// need to be checked once per app session, not on every route change.
+let scheduleAnnouncementsChecked = false
+
 async function syncCopilot(path, user) {
   const container = (() => {
     let el = document.getElementById('copilot-root')
@@ -243,6 +249,13 @@ async function syncCopilot(path, user) {
     container.innerHTML = renderCopilotWidget(role)
     initCopilotWidget(role)
     copilotMountedRole = role
+  }
+
+  // Scheduled-upload announcements are student-facing only (admins already
+  // see everything) and only worth checking once per app session.
+  if (role === 'student' && !scheduleAnnouncementsChecked) {
+    scheduleAnnouncementsChecked = true
+    checkScheduleAnnouncements().catch((e) => console.error('Schedule announcements failed:', e))
   }
 }
 

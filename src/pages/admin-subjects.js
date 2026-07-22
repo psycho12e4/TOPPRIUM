@@ -360,12 +360,15 @@ function wireFolderNode(folder, subjectId) {
           { value: 'selected', label: 'Selected users only' },
         ], defaultValue: 'everyone' },
         { name: 'userIds', label: 'Selected users', type: 'select', multiple: true, options: students.map(u => ({ value: u.id, label: u.email || u.id })), required: false },
+        { name: 'scheduledAt', label: 'Schedule for later (optional)', type: 'datetime-local', required: false },
       ], { confirmLabel: 'Add Book' })
       if (!result) return
 
       // "Selected users only" with nobody picked is allowed — the book simply
       // becomes locked/inaccessible to everyone (shown with a lock icon on the
       // student side) rather than blocking the save.
+
+      const scheduledAt = result.scheduledAt ? new Date(result.scheduledAt).toISOString() : null
 
       showNotification('Uploading...', 'info')
 
@@ -394,13 +397,14 @@ function wireFolderNode(folder, subjectId) {
         accessLevel: result.accessLevel,
         userIds: result.userIds || [],
         folderId: folder.id,
+        scheduledAt,
       })
       const newBook = Array.isArray(bookData) ? bookData[0] : bookData
       if (error || !newBook) {
         showNotification('Failed to add book: ' + (error?.message || ''), 'error')
         return
       }
-      showNotification('Book added')
+      showNotification(scheduledAt ? 'Book added — will go live at the scheduled time' : 'Book added')
       location.reload()
     })
   }
@@ -623,12 +627,15 @@ export function initAdminSubjectsEvents() {
           { value: 'selected', label: 'Selected users only' },
         ], defaultValue: 'everyone' },
         { name: 'userIds', label: 'Selected users', type: 'select', multiple: true, options: students.map(u => ({ value: u.id, label: u.email || u.id })), required: false },
+        { name: 'scheduledAt', label: 'Schedule for later (optional)', type: 'datetime-local', required: false },
       ], { confirmLabel: 'Add Book' })
       if (!result) return
 
       // "Selected users only" with nobody picked is allowed — the book simply
       // becomes locked/inaccessible to everyone (shown with a lock icon on the
       // student side) rather than blocking the save.
+
+      const scheduledAt = result.scheduledAt ? new Date(result.scheduledAt).toISOString() : null
 
       showNotification('Uploading...', 'info')
 
@@ -656,11 +663,12 @@ export function initAdminSubjectsEvents() {
       const { error } = await createBook(subjectId, result.name, fileUrl, result.file.type, coverUrl, {
         accessLevel: result.accessLevel,
         userIds: result.userIds || [],
+        scheduledAt,
       })
       if (error) {
         showNotification('Failed to add book: ' + (error.message || ''), 'error')
       } else {
-        showNotification('Book added')
+        showNotification(scheduledAt ? 'Book added — will go live at the scheduled time' : 'Book added')
         loadBooks(subjectId, document.getElementById(`books-list-${subjectId}`))
       }
     })

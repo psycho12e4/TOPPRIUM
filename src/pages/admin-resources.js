@@ -79,6 +79,17 @@ export async function renderAdminResources() {
             </div>
           </div>
 
+          <div class="mb-4">
+            <label class="flex items-center gap-2 text-sm font-medium mb-2">
+              <input type="checkbox" id="resource-schedule-toggle" class="w-4 h-4">
+              Schedule for later instead of publishing now
+            </label>
+            <div id="resource-schedule-picker" class="hidden">
+              <input type="datetime-local" id="resource-schedule-at" class="input">
+              <p class="text-xs text-gray-500 mt-1">The file uploads now, but stays hidden from students until this date/time.</p>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-primary">Upload Resource</button>
         </form>
       </div>
@@ -152,6 +163,14 @@ export function initAdminResourcesEvents() {
   if (accessLevelSelect && userPicker) {
     accessLevelSelect.addEventListener('change', (e) => {
       userPicker.classList.toggle('hidden', e.target.value !== 'selected')
+    })
+  }
+
+  const scheduleToggle = document.getElementById('resource-schedule-toggle')
+  const schedulePicker = document.getElementById('resource-schedule-picker')
+  if (scheduleToggle && schedulePicker) {
+    scheduleToggle.addEventListener('change', (e) => {
+      schedulePicker.classList.toggle('hidden', !e.target.checked)
     })
   }
 
@@ -446,9 +465,17 @@ export function initAdminResourcesEvents() {
       const file = document.getElementById('file-input').files[0]
       const accessLevel = document.getElementById('resource-access-level').value
       const userIds = [...document.getElementById('resource-user-ids').selectedOptions].map(option => option.value)
+      const scheduleEnabled = document.getElementById('resource-schedule-toggle')?.checked
+      const scheduleValue = document.getElementById('resource-schedule-at')?.value
+      const scheduledAt = scheduleEnabled && scheduleValue ? new Date(scheduleValue).toISOString() : null
 
       if (!chapterId || !title || !file) {
         showNotification('Please fill all fields', 'error')
+        return
+      }
+
+      if (scheduleEnabled && !scheduleValue) {
+        showNotification('Pick a date and time to schedule for', 'error')
         return
       }
 
@@ -463,12 +490,12 @@ export function initAdminResourcesEvents() {
       }
 
       const fileUrl = getPublicUrl('resources', fileName)
-      const { error: dbError } = await createResource(chapterId, title, fileUrl, file.type, { accessLevel, userIds })
+      const { error: dbError } = await createResource(chapterId, title, fileUrl, file.type, { accessLevel, userIds, scheduledAt })
 
       if (dbError) {
         showNotification('Failed to save resource: ' + (dbError.message || ''), 'error')
       } else {
-        showNotification('Resource uploaded successfully')
+        showNotification(scheduledAt ? 'Resource uploaded — will go live at the scheduled time' : 'Resource uploaded successfully')
         location.reload()
       }
     })
