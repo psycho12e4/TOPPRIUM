@@ -356,10 +356,9 @@ function wireFolderNode(folder, subjectId) {
       ], { confirmLabel: 'Add Book' })
       if (!result) return
 
-      if (result.accessLevel === 'selected' && (!result.userIds || result.userIds.length === 0)) {
-        showNotification('Please select at least one user', 'error')
-        return
-      }
+      // "Selected users only" with nobody picked is allowed — the book simply
+      // becomes locked/inaccessible to everyone (shown with a lock icon on the
+      // student side) rather than blocking the save.
 
       showNotification('Uploading...', 'info')
 
@@ -620,10 +619,9 @@ export function initAdminSubjectsEvents() {
       ], { confirmLabel: 'Add Book' })
       if (!result) return
 
-      if (result.accessLevel === 'selected' && (!result.userIds || result.userIds.length === 0)) {
-        showNotification('Please select at least one user', 'error')
-        return
-      }
+      // "Selected users only" with nobody picked is allowed — the book simply
+      // becomes locked/inaccessible to everyone (shown with a lock icon on the
+      // student side) rather than blocking the save.
 
       showNotification('Uploading...', 'info')
 
@@ -760,10 +758,9 @@ async function loadBooks(subjectId, listContainer) {
         const accessLevel = editAccessLevel.value
         const userIds = [...editor.querySelector('.book-edit-user-ids').selectedOptions].map(option => option.value)
 
-        if (accessLevel === 'selected' && userIds.length === 0) {
-          showNotification('Please select at least one user', 'error')
-          return
-        }
+        // "Selected users only" with nobody picked is allowed — the book simply
+        // becomes locked/inaccessible to everyone (shown with a lock icon on the
+        // student side) rather than blocking the save.
 
         const { error: saveError } = await updateBookAccess(bookId, accessLevel, userIds)
         if (saveError) {

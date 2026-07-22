@@ -386,10 +386,9 @@ export function initAdminResourcesEvents() {
               const accessLevel = editAccessLevel.value
               const userIds = [...editor.querySelector('.resource-edit-user-ids').selectedOptions].map(option => option.value)
 
-              if (accessLevel === 'selected' && userIds.length === 0) {
-                showNotification('Please select at least one user', 'error')
-                return
-              }
+              // "Selected users only" with nobody picked is allowed — the resource
+              // simply becomes locked/inaccessible to everyone (shown with a lock
+              // icon on the student side) rather than blocking the save.
 
               const { error: saveError } = await updateResourceAccess(resourceId, { accessLevel, userIds })
               if (saveError) {
@@ -443,11 +442,6 @@ export function initAdminResourcesEvents() {
 
       if (!chapterId || !title || !file) {
         showNotification('Please fill all fields', 'error')
-        return
-      }
-
-      if (accessLevel === 'selected' && userIds.length === 0) {
-        showNotification('Please select at least one user', 'error')
         return
       }
 

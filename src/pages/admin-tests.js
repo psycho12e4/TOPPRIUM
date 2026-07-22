@@ -374,10 +374,9 @@ export function initAdminTestsEvents() {
               const accessLevel = editAccessLevel.value
               const userIds = [...editor.querySelector('.test-edit-user-ids').selectedOptions].map(option => option.value)
 
-              if (accessLevel === 'selected' && userIds.length === 0) {
-                showNotification('Please select at least one user', 'error')
-                return
-              }
+              // "Selected users only" with nobody picked is allowed — the test
+              // simply becomes locked/inaccessible to everyone (shown with a lock
+              // icon on the student side) rather than blocking the save.
 
               const { error: saveError } = await updateTestAccess(testId, { accessLevel, userIds })
               if (saveError) {
@@ -527,11 +526,6 @@ export function initAdminTestsEvents() {
 
       if (!chapterId || !title) {
         showNotification('Please select a chapter and enter a title', 'error')
-        return
-      }
-
-      if (accessLevel === 'selected' && userIds.length === 0) {
-        showNotification('Please select at least one user', 'error')
         return
       }
 
