@@ -5,4 +5,5 @@ dist/
 .DS_Store
 *.log
 client_secret_*.json
+Deepseek-Api-key-Topprium
 .claude/

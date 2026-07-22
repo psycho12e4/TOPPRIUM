@@ -1,9 +1,11 @@
 import { getSubjects } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { renderErrorBanner } from '../lib/utils.js'
+import { filterToCurrentClass } from '../lib/site-scope.js'
 
 export async function renderHome() {
-  const { data: subjects, error } = await getSubjects()
+  const { data: rawSubjects, error } = await getSubjects()
+  const subjects = filterToCurrentClass(rawSubjects)
 
   return `
     ${renderNav()}

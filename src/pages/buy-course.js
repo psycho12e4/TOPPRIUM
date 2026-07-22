@@ -2,13 +2,14 @@ import { createCourseRequest, getCurrentUser, getSubjects } from '../lib/supabas
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { showNotification } from '../lib/utils.js'
 import { COURSE_ACCESS_BETA_LABEL } from '../lib/feature-flags.js'
+import { CURRENT_CLASS, filterToCurrentClass } from '../lib/site-scope.js'
 
 const OTHER_VALUE = '__other__'
 
 export async function renderBuyCourse() {
-  const { data: subjects } = await getSubjects()
-  const courseOptions = (subjects || [])
-    .map(s => `<option value="${s.name}">${s.name}${s.grade ? ` (Class ${s.grade})` : ''}</option>`)
+  const { data: rawSubjects } = await getSubjects()
+  const courseOptions = filterToCurrentClass(rawSubjects)
+    .map(s => `<option value="${s.name}">${s.name}</option>`)
     .join('')
 
   return `
@@ -26,10 +27,6 @@ export async function renderBuyCourse() {
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1" for="course-name">Full name</label>
           <input type="text" id="course-name" required class="input w-full" placeholder="e.g., Aarav Sharma" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="course-class">Class</label>
-          <input type="text" id="course-class" required class="input w-full" placeholder="e.g., VIII" />
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1" for="course-select">Course you want</label>
@@ -79,14 +76,13 @@ export function initBuyCourseEvents() {
     e.preventDefault()
 
     const nameInput = document.getElementById('course-name')
-    const classInput = document.getElementById('course-class')
     const emailInput = document.getElementById('course-email')
     const submitBtn = document.getElementById('course-submit')
     const successBox = document.getElementById('course-success')
     const errorBox = document.getElementById('course-error')
 
     const name = nameInput.value.trim()
-    const studentClass = classInput.value.trim()
+    const studentClass = CURRENT_CLASS
     const email = emailInput.value.trim()
     const courseName = courseSelect.value === OTHER_VALUE
       ? otherInput.value.trim()
@@ -95,7 +91,7 @@ export function initBuyCourseEvents() {
     errorBox.classList.add('hidden')
     successBox.classList.add('hidden')
 
-    if (!name || !studentClass || !email || !courseName) return
+    if (!name || !email || !courseName) return
 
     submitBtn.disabled = true
     submitBtn.textContent = 'Submitting...'
