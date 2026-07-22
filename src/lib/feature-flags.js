@@ -2,6 +2,11 @@
 // live for real users. Flip to true when the feature should ship.
 
 // Locked previews on chapter pages, the /buy-course request page, and the
-// /admin/course-requests admin section. Built and verified, but kept behind
-// this flag until explicitly approved to go live.
-export const COURSE_ACCESS_ENABLED = false
+// /admin/course-requests admin section. Approved to go live, still marked
+// "Beta" in the UI (see COURSE_ACCESS_BETA_LABEL) while it's proven out.
+export const COURSE_ACCESS_ENABLED = true
+
+// Shown next to locked-card copy and the buy-course page while this feature
+// is still being validated in production. Flip to false once it's no longer
+// considered beta.
+export const COURSE_ACCESS_BETA_LABEL = true

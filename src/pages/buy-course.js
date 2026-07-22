@@ -1,6 +1,7 @@
 import { createCourseRequest, getCurrentUser, getSubjects } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { showNotification } from '../lib/utils.js'
+import { COURSE_ACCESS_BETA_LABEL } from '../lib/feature-flags.js'
 
 const OTHER_VALUE = '__other__'
 
@@ -14,7 +15,10 @@ export async function renderBuyCourse() {
     ${renderNav()}
     <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-extrabold text-slate-900 mb-2">Request Course Access</h1>
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <h1 class="text-3xl font-extrabold text-slate-900">Request Course Access</h1>
+          ${COURSE_ACCESS_BETA_LABEL ? '<span class="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-2 py-1 rounded">Beta</span>' : ''}
+        </div>
         <p class="text-slate-500">Want a locked course? Share your details and pay at school — we'll unlock your access once payment is collected.</p>
       </div>
 

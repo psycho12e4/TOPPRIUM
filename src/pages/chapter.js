@@ -1,7 +1,7 @@
 import { getChapter, getChapterResourcesPreview, getChapterTestsPreview, getFolders } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { getFileIcon, formatFileType, renderErrorBanner } from '../lib/utils.js'
-import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
+import { COURSE_ACCESS_ENABLED, COURSE_ACCESS_BETA_LABEL } from '../lib/feature-flags.js'
 import defaultFolderLogo from '../assets/default-folder-logo.png'
 
 const LOCK_ICON = `
@@ -16,7 +16,10 @@ function renderLockedCard(title, subtitle) {
     <div class="card relative bg-slate-50 border-slate-200">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <h3 class="text-lg font-semibold text-slate-500 truncate">${title}</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-slate-500 truncate">${title}</h3>
+            ${COURSE_ACCESS_BETA_LABEL ? '<span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Beta</span>' : ''}
+          </div>
           <p class="text-sm text-slate-400 mt-2">${subtitle}</p>
         </div>
         <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center">${LOCK_ICON}</span>

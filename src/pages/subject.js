@@ -1,7 +1,7 @@
 import { getSubject, getChapters, getBooksPreview, getSubjectFolders, getSubFolders, getFolderResources } from '../lib/supabase.js'
 import { renderNav, initNavEvents } from '../components/nav.js'
 import { renderErrorBanner, getFileIcon, formatFileType } from '../lib/utils.js'
-import { COURSE_ACCESS_ENABLED } from '../lib/feature-flags.js'
+import { COURSE_ACCESS_ENABLED, COURSE_ACCESS_BETA_LABEL } from '../lib/feature-flags.js'
 import defaultFolderLogo from '../assets/default-folder-logo.png'
 
 const LOCK_ICON = `
@@ -43,7 +43,10 @@ function renderBookCard(book) {
           ? `<img src="${book.cover_url}" alt="" class="w-12 h-16 rounded object-cover shrink-0 opacity-60">`
           : `<span class="w-12 h-16 rounded bg-slate-200 text-slate-500 flex items-center justify-center text-2xl shrink-0">📖</span>`}
         <div class="min-w-0 flex-1">
-          <h3 class="font-semibold text-slate-500 truncate">${book.name}</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold text-slate-500 truncate">${book.name}</h3>
+            ${COURSE_ACCESS_BETA_LABEL ? '<span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Beta</span>' : ''}
+          </div>
           <p class="text-sm text-slate-400 mt-1">Locked — buy the course to unlock</p>
           <a href="/buy-course" class="mt-2 btn btn-primary text-sm inline-flex">Contact to buy course</a>
         </div>
