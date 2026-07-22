@@ -5,5 +5,9 @@ dist/
 .DS_Store
 *.log
 client_secret_*.json
+# Loose API-key files kept in the repo root — never commit these.
 Deepseek-Api-key-Topprium
+*-TOPPRIUM-Api-Key
+*-Api-Key
+*-api-key
 .claude/

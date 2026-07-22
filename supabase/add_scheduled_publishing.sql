@@ -228,7 +228,8 @@ as $$
     b.scheduled_at,
     (b.scheduled_at is not null and b.scheduled_at > now()) as is_scheduled
   from public.books b
-  where b.status = 'published'
+  where b.subject_id = p_subject_id
+    and b.status = 'published'
     and (
       public.is_admin()
       or b.scheduled_at is null
